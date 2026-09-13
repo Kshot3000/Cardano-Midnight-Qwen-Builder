@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ada Metrics — live Cardano network dashboard</title>
+<meta name="description" content="Live Cardano network metrics: ADA price and market cap (CoinGecko), block height and 24h block/transaction throughput (Blockchair).">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .price-hero { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  .price { font-size: 44px; font-weight: 800; font-family: var(--mono); }
+  .supply-note { color: var(--muted); font-size: 13px; font-family: var(--mono); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <h1>💎 Ada Metrics</h1>
+  <p class="sub">Live pulse of the <strong>Cardano</strong> settlement layer — the base that Midnight's
+  privacy sits on. Auto-refreshes every 60 seconds.
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <div class="price-hero">
+        <div class="price" id="ada-price">—</div>
+        <div class="delta" id="ada-change">—</div>
+        <div class="supply-note" id="ada-mcap"></div>
+      </div>
+      <div class="stats" id="stats" style="margin-top:18px"></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 Why Cardano is the settlement layer</h3>
+      <p>Cardano's low, predictable fees and deterministic execution make it the practical settlement rail for
+      <em>verifiable workloads</em>: agent escrow, milestone payments, and proof-anchored receipts that
+      <a href="../midnight-pulse/index.html">Midnight</a> can selectively disclose. When an AI agent finishes a job,
+      someone has to be paid in a cheap, auditable way — that's ADA. Midnight then adds the privacy:
+      the agent proves the job was done without revealing who did what to whom.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script src="../../assets/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Midnight Pulse — live Midnight mainnet dashboard</title>
+<meta name="description" content="Live Midnight mainnet network health: blocks, TPS, shielded ratio, bridge ops, committee and event breakdown. Data: NightForge public explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .block-list { display: grid; gap: 6px; }
+  .block-row {
+    display: grid; grid-template-columns: 90px 130px 1fr 60px; gap: 10px; align-items: center;
+    font-family: var(--mono); font-size: 12.5px; padding: 8px 12px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .block-row .h { color: var(--accent-2); font-weight: 700; }
+  .block-row .hash { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .block-row .time { color: var(--fg); }
+  .block-row .ext { text-align: right; color: var(--muted); }
+  @media (max-width: 640px) { .block-row { grid-template-columns: 80px 1fr 50px; } .block-row .hash { display: none; } }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <h1>🌙 Midnight Pulse</h1>
+  <p class="sub">Live health of <strong>Midnight mainnet</strong> — Cardano's ZK data-protection
+  partner chain. Auto-refreshes every 60 seconds.
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="stats" id="stats"></div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📊 Network event breakdown</h3>
+        <p class="section-sub">Top events indexed across all blocks — shielded flow, contracts, governance.</p>
+        <div class="bars" id="events"></div>
+      </div>
+      <div class="card">
+        <h3>⛓ Latest blocks</h3>
+        <p class="section-sub">Freshest blocks from the mainnet head.</p>
+        <div class="block-list" id="blocks"><div class="section-sub">loading…</div></div>
+        <div class="row" style="margin-top:14px">
+          <a class="btn" href="https://polkadot.network#/explorer?network=midnight" target="_blank" rel="noopener">Open in explorer</a>
+          <a class="btn" href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">API docs</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this data</h3>
+      <p>Stats come from the public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) which indexes <a href="https://docs.midnight.network/guides/networks-and-environments" target="_blank" rel="noopener">Midnight mainnet</a>
+      (node <code>rpc.mainnet.midnight.network</code>, indexer <code>indexer.mainnet.midnight.network</code>).
+      The <strong>shielded ratio</strong> is the share of Midnight transactions where value is hidden by ZK proofs —
+      the chain's core promise: <em>selective disclosure, not no disclosure</em>. Nothing private is ever exposed here.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script src="../../assets/common.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

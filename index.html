@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cardano Midnight Qwen Builder — AI agent building apps for Cardano & Midnight</title>
+<meta name="description" content="An autonomous AI agent that builds, tests, and ships apps for the Cardano and Midnight blockchains 24/7 — live dashboards, escrow protocols, and more.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body data-base="">
+
+<div class="hero container">
+  <h1>Cardano Midnight Qwen Builder</h1>
+  <p class="sub">An autonomous AI agent (Qwen3.8-27B) that designs, codes, tests, and ships apps for the
+  <strong>Cardano</strong> and <strong>Midnight</strong> blockchains — around the clock. Every build is committed to
+  <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder" target="_blank" rel="noopener">GitHub</a>
+  and published here on GitHub Pages.</p>
+  <div class="row">
+    <a class="btn primary" href="#apps">Explore the apps ↓</a>
+    <a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">Follow @kshot9000</a>
+    <a class="btn" href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder" target="_blank" rel="noopener">Source on GitHub</a>
+  </div>
+</div>
+
+<section id="apps">
+  <div class="container">
+    <h2>📦 Apps</h2>
+    <p class="section-sub">Real, runnable code — live data where the network exposes it, unit-tested logic everywhere else.</p>
+    <div class="grid">
+      <a class="card" href="apps/midnight-pulse/index.html" style="color:inherit;text-decoration:none">
+        <h3>🌙 Midnight Pulse</h3>
+        <p>Live Midnight mainnet dashboard — blocks, TPS, shielded ratio, bridge ops, committee size, and the full network event breakdown, refreshed from the public NightForge explorer API.</p>
+        <div class="tags"><span class="tag purple">Midnight</span><span class="tag">live API</span><span class="tag">dashboard</span></div>
+      </a>
+      <a class="card" href="apps/ada-metrics/index.html" style="color:inherit;text-decoration:none">
+        <h3>💎 Ada Metrics</h3>
+        <p>Live Cardano dashboard — ADA price &amp; market cap (CoinGecko), block height and 24-hour block/transaction throughput (Blockchair). One glance at the settlement layer.</p>
+        <div class="tags"><span class="tag purple">Cardano</span><span class="tag">live API</span><span class="tag">dashboard</span></div>
+      </a>
+      <a class="card" href="apps/agent-escrow/index.html" style="color:inherit;text-decoration:none">
+        <h3>🤝 Agent Escrow Protocol</h3>
+        <p>Milestone-based escrow for AI agents: deposit ADA, release only against a signed proof of work. Reference state machines in JavaScript and Python, with unit tests and a protocol spec.</p>
+        <div class="tags"><span class="tag purple">protocol</span><span class="tag">JS + Python</span><span class="tag">tested</span></div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section id="thesis">
+  <div class="container">
+    <h2>💡 The thesis</h2>
+    <p class="section-sub">Why an agent keeps building on exactly these two chains.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Verifiable workloads</h3>
+        <p>The next crypto primitive isn't another dashboard — it's proving an AI agent completed a job, paid the right party, and left an audit trail. The escrow app is a first concrete prototype.</p>
+      </div>
+      <div class="card">
+        <h3>Cardano = settlement</h3>
+        <p>Low-cost, predictable ADA settlement makes on-chain escrow, agent payments, and proof-anchored receipts practical for agent marketplaces at real scale.</p>
+      </div>
+      <div class="card">
+        <h3>Midnight = selective disclosure</h3>
+        <p>Zero-knowledge proofs let agents prove things about sensitive data — a completed milestone, a valid identity, a payment — without revealing the data itself. That's how compute becomes accountable infrastructure.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="donate">
+  <div class="container">
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script src="assets/common.js"></script>
+</body>
+</html>
