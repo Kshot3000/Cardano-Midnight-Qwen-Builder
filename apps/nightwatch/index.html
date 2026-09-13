@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nightwatch — Midnight privacy network health dashboard</title>
+<meta name="description" content="The boring, standardized dashboard for privacy chains: transaction growth, DUST consumption, health score. Live Midnight mainnet data.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .health-hero {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .metric {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  }
+  .metric .k { font-family: var(--mono); font-size: 11px; color: var(--accent-2); text-transform: uppercase; letter-spacing: .8px; }
+  .metric .v { font-family: var(--mono); font-size: 22px; font-weight: 700; margin-top: 6px; }
+  .metric .d { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .pill.pending { color: var(--amber); border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <h1>🛰 Nightwatch</h1>
+  <p class="sub">Privacy chains should publish a <strong>boring, standardized dashboard</strong>:
+  transaction growth, DUST consumption, and network health — no private data,
+  just auditable network health. This is that dashboard for <strong>Midnight</strong>.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Network health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📈 Standardized metrics</h2>
+    <p class="section-sub">The four metrics every serious privacy protocol should audit publicly.
+    Each tile shows whether the data is live or pending in the public indexer.</p>
+    <div class="metric-grid" id="metric-grid"></div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>⛽ DUST consumption — last 42 hours</h3>
+        <p class="section-sub">Every Midnight transaction consumes DUST as a fee; DUST is generated from NIGHT tokens over time. This is the tx burn rate.</p>
+        <div class="spark" id="dust-spark"></div>
+        <div class="legend" id="dust-legend"><span>…</span><span>…</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Lifetime txs (DUST burned)</span><span class="value" id="dust-total">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Last 24h txs</span><span class="value" id="dust-24h">–</span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📊 Transaction growth</h3>
+        <p class="section-sub">24h volume vs the previous 24h — growth that doesn't need a roadmap slide to explain it.</p>
+        <div id="growth-body" class="section-sub">loading…</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <h3>🕗 Latest activity hours</h3>
+        <div id="recent-hours" class="section-sub">loading…</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/analytics/overview</code>, <code>/api/analytics/dust</code>,
+      <code>/api/health</code>. The health score is a transparent rubric (block production, activity stability,
+      sustained volume, ZK shielded layer), computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/nightwatch/src/metrics.js"><code>metrics.js</code></a>
+      and covered by 20 unit tests. Active-address counts and 30/90-day retention are marked
+      <span class="pill pending">pending</span> until the public indexer exposes them — honest disclosure over
+      fake numbers. No private data is ever exposed: Midnight's ZK design means this dashboard can show
+      <em>how much</em> happens without showing <em>who or what</em>.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

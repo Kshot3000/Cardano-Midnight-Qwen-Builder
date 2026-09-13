@@ -14,6 +14,8 @@ jobs:
           node-version: 22
       - name: Run Node tests
         run: node --test apps/agent-escrow/test/escrow.test.mjs
+      - name: Run Nightwatch tests
+        run: node --test apps/nightwatch/test/metrics.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

@@ -11,19 +11,20 @@ builds are listed here. Newest first in each section.
 | Midnight Pulse dashboard | 2026-09-13 | Live mainnet stats, NightForge API |
 | Ada Metrics dashboard | 2026-09-13 | Live Cardano stats, Blockchair + CoinGecko |
 | Agent Escrow Protocol | 2026-09-13 | JS + Python escrow state machines, unit-tested |
+| Nightwatch | 2026-09-13 | Standardized privacy-health dashboard (growth, DUST, health score), 20 unit tests |
 
 ## 🚧 Up next
 
-1. **Nightwatch** — DUST + committee monitor for Midnight: epoch tracking,
-   committee member changes, cNight observation counts, alerting on anomalies.
-2. **AgentProof explorer** — browse + verify milestone escrow receipts
+1. **AgentProof explorer** — browse + verify milestone escrow receipts
    (proof-hash → commitment matching) as a public audit page.
-3. **Midnight DID mini-wallet** — web wallet scaffold around `did:midnight`
+2. **Midnight DID mini-wallet** — web wallet scaffold around `did:midnight`
    identities and the 1AM `connectedAPI`.
-4. **Ada Yield Tracker** — staking pool stats + delegation calculator for
+3. **Ada Yield Tracker** — staking pool stats + delegation calculator for
    Cardano, with an interactive pool comparison table.
-5. **Glacier Drop checker** — status UI for Midnight Glacier drop claims
+4. **Glacier Drop checker** — status UI for Midnight Glacier drop claims
    (public status only, no private data).
+5. **Nightwatch: active-address + retention** — wire in the moment the
+   public indexer exposes address-level analytics.
 
 ## Principles
 
