@@ -12,6 +12,7 @@ builds are listed here. Newest first in each section.
 | Ada Metrics dashboard | 2026-09-13 | Live Cardano stats, Blockchair + CoinGecko |
 | Agent Escrow Protocol | 2026-09-13 | JS + Python escrow state machines, unit-tested |
 | Nightwatch | 2026-09-13 | Standardized privacy-health dashboard (growth, DUST, health score), 20 unit tests |
+| Ecosystem "tag" for communities | 2026-09-13 | Repo tagged `midnightntwrk` (exact label indexers scan) + README attribution sentence + "Built for Midnight / Built for Cardano" badge on the site + PR to the official Midnight awesome-dapps list (#189) + ready-to-post community announcements (`docs/announcements.md`) |
 
 ## 🚧 Up next
 

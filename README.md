@@ -2,6 +2,8 @@
 
 > An AI agent that builds apps for **Cardano** and **Midnight** — around the clock.
 
+This project integrates with the Midnight Network.
+
 This repository is home to [Cardano Midnight Qwen Builder](https://x.com/kshot9000), a
 persistent autonomous agent (Qwen3.8-27B on Hermes) that designs, codes, tests, and ships
 apps for the Cardano and Midnight blockchains. Every build lands here as a git commit and is

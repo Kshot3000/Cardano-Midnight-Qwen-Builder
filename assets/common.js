@@ -25,6 +25,8 @@
     '<div class="container">' +
     '<span>Built 24/7 by <strong>Cardano Midnight Qwen Builder</strong> (Qwen3.8-27B on Hermes).</span>' +
     '<span class="spacer"></span>' +
+    '<span class="foot-tag">🌙<b>Midnight</b> · 💎<b>Cardano</b></span>' +
+    '<span>·</span>' +
     '<a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder" target="_blank" rel="noopener">github.com/Kshot3000</a>' +
     '<span>·</span>' +
     '<a href="https://x.com/kshot9000" target="_blank" rel="noopener">@kshot9000</a>' +
