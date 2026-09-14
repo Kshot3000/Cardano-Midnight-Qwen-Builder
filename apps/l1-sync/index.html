@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L1 Sync Watch — how closely Midnight follows Cardano L1</title>
+<meta name="description" content="Live dashboard of Midnight's Cardano L1 observation stream — which Cardano block Midnight is currently observing, live lag vs the Cardano tip, observation cadence, and the decoded token-event flow. Data from the public NightForge explorer and Koios.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .lag-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .lag-hero .lag-num { font-family: var(--mono); font-size: 34px; font-weight: 700; }
+  .lag-hero .lag-sub { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.5; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  table.lsw { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.lsw th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.lsw td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.lsw tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">one chain watching the other — live</span>
+  </div>
+  <h1>📡 L1 Sync Watch</h1>
+  <p class="sub">Midnight runs an on-chain <strong>L1 observer</strong> that watches the Cardano mainchain
+  and records its blocks. This dashboard answers the only question that matters:
+  <em>how far behind is Midnight from the Cardano tip right now</em> — which block it's observing,
+  the live lag, how often it observes, and the token events flowing through.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 L1 sync health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>⏱️ Live lag vs the Cardano tip</h2>
+    <p class="section-sub">The highest Cardano block Midnight has observed, vs where the Cardano mainchain tip is right now (Koios).</p>
+    <div class="lag-hero">
+      <div class="stat"><span class="label">Midnight observing (L1 block)</span><span class="value" id="observed-block">–</span><span class="delta" id="observed-hash" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Cardano tip (Koios)</span><span class="value" id="tip-block">–</span><span class="delta" id="tip-epoch" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Lag (blocks)</span><span class="lag-num" id="lag-blocks">–</span><span class="lag-sub" id="lag-seconds">…</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 Observation cadence</h3>
+        <p class="section-sub">Seconds between successive Midnight observations of the L1 stream, over the scanned window. A steady stream is short bars that look alike.</p>
+        <div class="spark" id="cadence-spark"></div>
+        <div class="legend" id="cadence-legend"><span>…</span><span>…</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Median gap</span><span class="value" id="cadence-median">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Min gap</span><span class="value" id="cadence-min">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Max gap</span><span class="value" id="cadence-max">–</span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🪟 Scan window</h3>
+        <p class="section-sub">The most recent Midnight extrinsics scanned — what Midnight processed, and how much of the Cardano mainchain that covered.</p>
+        <div id="window-body" class="section-sub">loading…</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <h3>ℹ️ What an observation is</h3>
+        <p class="section-sub" style="margin:0">An observation is the <code>cNightObservation.processTokens</code>
+        extrinsic Midnight runs to fold a Cardano L1 block (and any token events inside it) into Midnight.
+        The dashboard reads it straight off-chain from the public explorer.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🗒️ Recent L1 observations</h2>
+    <p class="section-sub">The newest observations as reported by the explorer — Midnight extrinsic, Midnight block, the observed Cardano block, token events inside it, and how old it is.</p>
+    <div class="table-wrap">
+      <table class="lsw">
+        <thead>
+          <tr><th>Midnight extrinsic</th><th>Midnight block</th><th>Observed L1 block</th><th>Token events</th><th>Age</th></tr>
+        </thead>
+        <tbody id="recent-tbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/extrinsics</code>, cross-checked against the Cardano
+      mainchain tip from <a href="https://data.cardano.org" target="_blank" rel="noopener">Koios</a>
+      (<code>data.cardano.org/k/api/v1/tip</code>). The sync health score is a transparent rubric (tight lag,
+      steady cadence, broad coverage, asset flow), computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/l1-sync/src/sync.js"><code>sync.js</code></a>
+      and covered by unit tests. If the explorer stops exposing a field, this page shows
+      <span class="pill live">–</span> rather than inventing a number. No private data — every observation is public on Midnight.</p>
+      <p class="foot-note">Lag in blocks is exact (observed L1 block vs Koios tip height). Lag in
+      <em>seconds</em> is an estimate at Cardano mainnet's 20-second block time and is labeled as such.
+      This is an informational tool — verify finality and amounts against official sources before relying on them.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

@@ -40,6 +40,8 @@ jobs:
         run: node --test apps/privacy-watch/test/privacy.test.mjs
       - name: Run Tx Health Monitor tests
         run: node --test apps/tx-health/test/txhealth.test.mjs
+      - name: Run L1 Sync Watch tests
+        run: node --test apps/l1-sync/test/sync.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
