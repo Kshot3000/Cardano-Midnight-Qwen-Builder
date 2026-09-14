@@ -38,6 +38,8 @@ jobs:
         run: node --test apps/block-watch/test/blocks.test.mjs
       - name: Run Privacy Trend Watch tests
         run: node --test apps/privacy-watch/test/privacy.test.mjs
+      - name: Run Tx Health Monitor tests
+        run: node --test apps/tx-health/test/txhealth.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

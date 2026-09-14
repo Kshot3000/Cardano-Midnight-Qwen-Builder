@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transaction Health Monitor — live Midnight settlement + D-parameter dashboard</title>
+<meta name="description" content="Live Midnight transaction settlement health — lifetime applied vs partial-success extrinsics with the rate recomputed and cross-checked against the indexer, a de-duplicated partial-success register, the on-chain D-parameter decentralization timeline since genesis, and a transparent 0–100 settlement health score. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; margin-left: 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .pill.warn { color: var(--amber); border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  .split-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 18px; background: var(--bg-2); }
+  .split-bar .applied { background: linear-gradient(90deg, rgba(52,211,153,.8), var(--green)); }
+  .split-bar .partial { background: linear-gradient(90deg, rgba(251,191,36,.7), var(--amber)); }
+  .split-legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  table.th { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.th th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.th td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); vertical-align: top; }
+  table.th tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .kv { display: flex; justify-content: space-between; gap: 16px; font-size: 13.5px; padding: 9px 0; border-bottom: 1px solid rgba(38,48,92,.5); flex-wrap: wrap; }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-family: var(--mono); text-align: right; }
+  .dup-note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-note">settlement, measured to the last extrinsic</span>
+  </div>
+  <h1>🩹 Transaction Health Monitor</h1>
+  <p class="sub">Every chain settles most transactions cleanly — but a handful come back
+  <em>partial-success</em>: the state change landed, with a failure somewhere in the call.
+  This dashboard measures how clean Midnight's settlement really is, over its entire life:
+  lifetime applied vs partial-success extrinsics, the most recent partials on the record,
+  and the on-chain <strong>D-parameter</strong> timeline — the permissioned vs registered
+  candidate pool that governs how decentralized validator entry is.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Settlement health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🧾 Lifetime settlement — applied vs partial-success</h2>
+    <p class="section-sub">Every extrinsic the local index has seen, classified. The partial rate is recomputed from the raw counts — not just copied from the indexer — and cross-checked against the API-reported value.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Fully applied</span><span class="value" id="st-applied" style="color:var(--green)">–</span><span class="delta" id="st-applied-share" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Partial-success</span><span class="value" id="st-partial" style="color:var(--amber)">–</span></div>
+      <div class="stat"><span class="label">Total indexed</span><span class="value" id="st-total">–</span><span class="delta" id="st-sum" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Partial rate (recomputed)</span><span class="value" id="st-rate">–</span></div>
+      <div class="stat"><span class="label">Indexer-reported rate</span><span class="value" id="st-reported">–</span><span class="delta" id="st-delta" style="color:var(--muted)"></span></div>
+    </div>
+    <div class="split-bar" id="split-bar" title="applied vs partial-success"><div class="applied" id="split-applied" style="width:0%"></div><div class="partial" id="split-partial" style="width:0%"></div></div>
+    <div class="split-legend"><span id="split-legend-l">–</span><span id="split-legend-r">–</span></div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>🚨 Recent partial-success register</h3>
+        <p class="section-sub">The most recent extrinsics that settled partially — the network's own incident log, de-duplicated (the indexer re-emits the same partial tx up to three times) and sorted newest first.</p>
+        <div class="table-wrap" style="border-radius:10px">
+          <table class="th">
+            <thead>
+              <tr><th>Extrinsic</th><th>Block</th><th>Time</th><th>Age</th></tr>
+            </thead>
+            <tbody id="partial-tbody"><tr><td colspan="4" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="dup-note" id="dup-note"></div>
+      </div>
+      <div class="card">
+        <h3>🧭 D-parameter timeline</h3>
+        <p class="section-sub">Midnight's on-chain decentralization parameter — the size of the permissioned (fixed) vs registered (open) validator-candidate pool, state by state, genesis to now.</p>
+        <div id="dparam-body" class="section-sub" style="margin-bottom:14px">loading…</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <h3 style="font-size:15px">Summary</h3>
+        <p class="section-sub" id="dparam-summary" style="margin-bottom:0">loading…</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/analytics/tx-health</code> (lifetime applied vs partial-success,
+      local index, recent partials) and <code>/api/governance/d-parameter</code> (on-chain decentralization parameter history).
+      The settlement health score is a transparent rubric (clean settlement, low partial rate, ledger adds up, self-consistent),
+      computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/tx-health/src/txhealth.js"><code>txhealth.js</code></a>
+      and covered by 30 unit tests. The partial rate shown is <em>recomputed</em> from raw counts and cross-checked against the
+      indexer-reported value; the recent-partial register is de-duplicated, because the indexer is known to emit the same tx up to
+      three times. If the indexer stops exposing a field, this page shows <span class="pill live">–</span> rather than inventing a number.</p>
+      <p class="foot-note">"Partial-success" means the extrinsic was included and its state effects applied, but at least one
+      inner call returned an error — common with multi-call governance and bridge operations. It is a real settlement-quality
+      signal, not a transaction failure: the fees were paid and the partial effects are on the ledger. The D-parameter governs
+      which validator candidates may be elected: the permissioned set is fixed by governance, the registered set is open.
+      This is an informational tool — verify figures against the official explorer before relying on them.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
