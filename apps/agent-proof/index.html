@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentProof — verify agent escrow receipts</title>
+<meta name="description" content="Paste any Agent Escrow Protocol receipt and re-derive its validity in your browser — proof-hash commitments, separation of duties, accounting, and the full audit trail, checked locally with zero network calls.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .verify-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 16px; align-items: start; }
+  @media (max-width: 860px) { .verify-grid { grid-template-columns: 1fr; } }
+  textarea {
+    width: 100%; min-height: 300px; resize: vertical;
+    background: var(--bg-2); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px; font-family: var(--mono); font-size: 13px; line-height: 1.5;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .check-row {
+    display: grid; grid-template-columns: 34px 1fr; gap: 10px; align-items: start;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .check-row:last-child { border-bottom: none; }
+  .check-ico { font-size: 18px; line-height: 1.4; text-align: center; }
+  .check-ico.ok { color: var(--green); }
+  .check-ico.bad { color: var(--red); }
+  .check-ico.skip { color: var(--muted); }
+  .check-name { font-weight: 700; font-family: var(--mono); font-size: 13px; }
+  .check-detail { color: var(--muted); font-size: 13px; word-break: break-word; }
+  .verdict {
+    font-size: 15px; font-weight: 700; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px;
+    border: 1px solid;
+  }
+  .verdict.ok { color: var(--green); background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.4); }
+  .verdict.bad { color: var(--red); background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.4); }
+  .chip { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .chip b { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <h1>🔎 AgentProof</h1>
+  <p class="sub">Don't trust an agent's invoice — <strong>verify it.</strong> Paste any Agent Escrow
+  Protocol receipt and re-derive its validity <em>in your browser</em>: proof-hash commitments,
+  separation of duties, the accounting identity, and the full audit trail. All seven checks run
+  locally against the same module the tests use — <strong>zero network calls, nothing leaves your machine.</strong></p>
+  <div class="row">
+    <button class="btn primary" id="load-sample">Load the demo receipt</button>
+    <button class="btn" id="clear">Clear</button>
+    <a class="btn" href="../agent-escrow/index.html">Agent Escrow Protocol →</a>
+  </div>
+</div>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="verify-grid">
+      <div class="card">
+        <h3>📥 Receipt JSON</h3>
+        <p>Paste a receipt object (or its JSON string). It's validated field-by-field before any check runs.</p>
+        <textarea id="input" spellcheck="false" placeholder='{ "id": "...", "client": "addr1...", "agent": "...", "approvers": [], "state": "settled", "funded": 0, "released": 0, "refunded": 0, "milestones": [], "commits": {}, "audit": [] }'></textarea>
+        <div class="row" style="margin-top:14px">
+          <button class="btn primary" id="verify">Verify receipt</button>
+          <span class="chip" id="meta"></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>✅ Verification report</h3>
+        <p id="verdict" class="verdict bad">Awaiting a receipt…</p>
+        <div id="checks"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h3>🔗 Proof commitments</h3>
+        <p>Every released milestone's proof hash must match the commitment published when the escrow was created — tamper with either side and the mismatch is flagged, not averaged away.</p>
+        <div class="tags"><span class="tag purple">proof_match</span></div>
+      </div>
+      <div class="card">
+        <h3>🛡 Separation of duties</h3>
+        <p>Only registered non-agent approvers can release or reject a milestone. If the agent approves its own work, or an unregistered party signs off, <code>milestone_state</code> and <code>audit_actors</code> both fail.</p>
+        <div class="tags"><span class="tag purple">milestone_state</span></div>
+      </div>
+      <div class="card">
+        <h3>⚖️ The accounting identity</h3>
+        <p><code>funded = released + refunded</code> and the released total must equal the sum of released milestones. The escrow balance is re-derived from the audit events, not the header — so a doctored header can't hide where the money went.</p>
+        <div class="tags"><span class="tag purple">accounting</span></div>
+      </div>
+      <div class="card">
+        <h3>🧾 Tamper-evident trail</h3>
+        <p><code>audit_chain</code> demands exactly the sequence 1..N with monotonic time, and <code>audit_actors</code> re-validates every event's actor, state transition, and payload — a rewritten release is caught by name.</p>
+        <div class="tags"><span class="tag purple">audit_chain</span><span class="tag">audit_actors</span></div>
+      </div>
+      <div class="card">
+        <h3>🧪 Tested, not vibes</h3>
+        <p>The same <code>proofs.js</code> module behind this page ships 64 unit tests, including end-to-end runs that build a real escrow with the Agent Escrow state machine and verify the resulting receipt.</p>
+        <div class="tags"><span class="tag">64 tests</span><span class="tag">node:test</span></div>
+      </div>
+      <div class="card">
+        <h3>🌙 On Midnight</h3>
+        <p>On Midnight the proof can be a ZK circuit that discloses only "milestone done" — the receipt shape here is what a shielded, selectively-disclosable proof would settle down to.</p>
+        <div class="tags"><span class="tag purple">Midnight</span><span class="tag">ZK</span></div>
+      </div>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

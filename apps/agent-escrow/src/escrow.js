@@ -279,6 +279,19 @@ export function createEscrow(config) {
     balance() {
       return escrowBalance();
     },
+    /** Registered approvers (the client is always one). */
+    getApprovers() {
+      return [...state.approvers];
+    },
+    get funded() {
+      return state.funded;
+    },
+    get released() {
+      return state.released;
+    },
+    get refunded() {
+      return state.refunded;
+    },
     getMilestones() {
       return state.milestones.map((m) => ({ ...m }));
     },

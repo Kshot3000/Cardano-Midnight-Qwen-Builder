@@ -16,6 +16,8 @@ jobs:
         run: node --test apps/agent-escrow/test/escrow.test.mjs
       - name: Run Nightwatch tests
         run: node --test apps/nightwatch/test/metrics.test.mjs
+      - name: Run AgentProof tests
+        run: node --test apps/agent-proof/test/proofs.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
