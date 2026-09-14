@@ -15,6 +15,10 @@ import {
   DEFAULTS, rewardPotAda, annualYield, saturation, comparePools,
 } from "./src/rewards.js";
 import { toPoolInput, topByStake, networkApy } from "./src/poolmath.js";
+import { normalizePoolId } from "./src/poolid.js";
+import {
+  normalizePoolRow, poolHealthFlags, healthScore, yieldLadder,
+} from "./src/poolhealth.js";
 
 const API = "https://data.cardano.org/k/api/v1";
 const EPOCHS_PER_YEAR = 73; // 365 / 5-day epochs
@@ -246,6 +250,141 @@ function wireSearch() {
   });
 }
 
+// ── Pool Inspector ──
+// Live data for ONE pool via the keyless pool_list filter
+// (pool_id_bech32=eq.…), plus live ADA/USD from CoinGecko.
+const PRICE_URL = "https://api.coingecko.com/api/v3/simple/price?ids=cardano&vs_currencies=usd";
+
+async function fetchAdaUsd() {
+  try {
+    const r = await fetch(PRICE_URL, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (r.status !== 200) return null;
+    const j = await r.json();
+    const v = j && j.cardano && Number(j.cardano.usd);
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch (_) {
+    return null; // price is cosmetic — ladder still works in ADA only
+  }
+}
+
+async function inspectPool(rawInput) {
+  const box = el("inspect-result");
+  const err = el("inspect-error");
+  const btn = el("inspect-btn");
+  const fail = (msg) => {
+    err.textContent = msg;
+    err.classList.add("show");
+    box.innerHTML = "";
+    btn.disabled = false;
+  };
+
+  const id = normalizePoolId(rawInput);
+  if (!id.ok) {
+    fail(`Not a pool id (${id.reason}). Paste a pool1… bech32 id or a 56-char hex id.`);
+    return;
+  }
+
+  err.classList.remove("show");
+  btn.disabled = true;
+  box.innerHTML = '<div class="status-loading"><span class="spinner"></span> inspecting pool…</div>';
+
+  let row;
+  try {
+    const page = await fetchJson(
+      `/pool_list?select=pool_id_bech32,pool_id_hex,ticker,active_stake,pledge,margin,fixed_cost,active_epoch_no,retiring_epoch,pool_status,relays,meta_url&pool_id_bech32=eq.${id.bech32}`
+    );
+    row = Array.isArray(page) ? page[0] : null;
+  } catch (e) {
+    fail(`data.cardano.org unreachable: ${e.message}`);
+    return;
+  }
+  if (!row) {
+    fail(`No live pool data for ${id.bech32.slice(0, 14)}… (id is valid, but it isn't a registered mainnet pool).`);
+    return;
+  }
+
+  const model = STATE ? STATE.model : null;
+  const net = {
+    totalSupplyAda: model?.totalSupplyAda ?? DEFAULTS.totalSupplyAda,
+    k: model?.k ?? DEFAULTS.k,
+    a0: model?.a0 ?? DEFAULTS.a0,
+    pot: model?.pot ?? rewardPotAda({}),
+    epochsPerYear: EPOCHS_PER_YEAR,
+  };
+
+  const adaUsd = await fetchAdaUsd();
+  const p = normalizePoolRow(row);
+  const flags = poolHealthFlags(p, net);
+  const { score, grade } = healthScore(flags);
+  const satPct = saturation(p.activeStakeAda, net.totalSupplyAda, net.k) * 100;
+  const ladder = yieldLadder(p, net, [1_000, 10_000, 50_000, 100_000, 500_000, 1_000_000], adaUsd);
+
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const flagHtml = flags.map((f) =>
+    `<div class="pi-flag"><span class="code ${f.level}">${esc(f.label)}</span><span class="detail">${esc(f.detail)}</span></div>`
+  ).join("");
+
+  const relayLines = p.relays.length
+    ? p.relays.map((r) => esc([r.dns, r.ipv4, r.ipv6, r.port ? `:${r.port}` : ""].filter(Boolean).join(" "))).join("<br/>")
+    : "—";
+
+  const kv = (label, value) =>
+    `<div class="pi-kv"><div class="label">${label}</div><div class="value">${value}</div></div>`;
+
+  const ladderRows = ladder.map((r) => `<tr>
+      <td class="ada-col">${fmtAda(r.ada)}${r.usd != null ? ` <span style="color:var(--muted);font-weight:400">($${fmtAda(r.usd)})</span>` : ""}</td>
+      <td>${fmt(r.epochAda, 2)} ADA</td>
+      <td>${fmtAda(r.annualAda)} ADA</td>
+      <td>${r.annualUsd != null ? `$${fmtAda(r.annualUsd)}` : "—"}</td>
+      <td>${fmt(r.apyPct, 2)}%</td>
+    </tr>`).join("");
+
+  box.innerHTML = `
+    <div class="pi-head">
+      <div class="pi-grade ${grade}" title="Health score ${score}/100">${grade}</div>
+      <div class="pi-id">
+        <b>${esc(p.ticker || "(no ticker)")}</b> · health ${score}/100<br/>
+        <span title="bech32 pool id">${esc(id.bech32)}</span><br/>
+        <span title="hex pool id">${esc(id.hex)}</span>
+      </div>
+    </div>
+    <div class="pi-flags">${flagHtml}</div>
+    <div class="pi-grid">
+      ${kv("Active stake", fmtB(p.activeStakeAda) + " ADA")}
+      ${kv("Saturation", fmt(satPct, 1) + "% of S/k")}
+      ${kv("Pledge", fmtAda(p.pledgeAda) + " ADA")}
+      ${kv("Margin", fmt(p.margin * 100, 1) + "%")}
+      ${kv("Fixed cost", fmtAda(p.costAda) + " ADA / epoch")}
+      ${kv("Status", esc(p.poolStatus || "—"))}
+      ${kv("Active epoch", p.activeEpochNo != null ? "#" + p.activeEpochNo : "—")}
+      ${kv("ADA / USD", adaUsd != null ? "$" + adaUsd.toFixed(4) : "pending")}
+    </div>
+    <h3>Yield ladder (CIP-16, this pool's live margin &amp; cost)</h3>
+    <div class="table-wrap">
+      <table class="ladder">
+        <thead><tr><th>Your stake</th><th>Net / epoch</th><th>Net / year</th><th>Net / year (USD)</th><th>Net APY</th></tr></thead>
+        <tbody>${ladderRows}</tbody>
+      </table>
+    </div>
+    <div class="pi-grid" style="grid-template-columns:1fr">
+      <div class="pi-kv"><div class="label">Relays (${p.relays.length})</div><div class="pi-relays">${relayLines}</div></div>
+      <div class="pi-kv"><div class="label">Operator metadata</div><div class="value">${p.metaUrl ? `<a href="${esc(p.metaUrl)}" target="_blank" rel="noopener">${esc(p.metaUrl)}</a>` : "none registered"}</div></div>
+      <div class="pi-kv"><div class="label">Explorer</div><div class="value"><a href="https://cexplorer.io/pool/${esc(id.bech32)}" target="_blank" rel="noopener">cexplorer.io/pool/${esc(id.bech32.slice(0, 16))}…</a></div></div>
+    </div>`;
+  btn.disabled = false;
+}
+
+function wireInspect() {
+  if (window.__inspectWired) return;
+  window.__inspectWired = true;
+  const run = () => { inspectPool(el("inspect-input").value); };
+  el("inspect-btn").addEventListener("click", run);
+  el("inspect-input").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+}
+
 // ── boot ──
 async function boot() {
   const errEl = el("load-error");
@@ -270,6 +409,7 @@ async function boot() {
     errEl.classList.toggle("show", warns.length > 0);
     render();
     wireSearch();
+    wireInspect();
     el("live-pill").innerHTML = '<span class="dot"></span> live';
     el("updated").textContent = new Date().toLocaleTimeString();
   } catch (e) {

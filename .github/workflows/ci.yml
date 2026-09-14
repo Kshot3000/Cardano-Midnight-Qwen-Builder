@@ -22,6 +22,8 @@ jobs:
         run: node --test apps/midnight-did-wallet/test/did.test.mjs
       - name: Run Ada Yield Tracker tests
         run: node --test apps/ada-yield/test/rewards.test.mjs
+      - name: Run Ada Yield Pool Inspector tests
+        run: node --test apps/ada-yield/test/poolid.test.mjs apps/ada-yield/test/poolhealth.test.mjs
       - name: Run Glacier Drop tests
         run: node --test apps/glacier-drop/test/glacier.test.mjs
 

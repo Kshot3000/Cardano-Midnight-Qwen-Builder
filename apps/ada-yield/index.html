@@ -58,6 +58,38 @@
     .updated { font-family: var(--mono); font-size: 12px; color: var(--muted); }
     .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
     .foot-note a { color: var(--accent-2); }
+    .inspect-row { display: flex; gap: 12px; align-items: center; margin: 18px 0 12px; flex-wrap: wrap; }
+    .inspect-row input { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; color: var(--fg); padding: 10px 14px; font-size: 13px; flex: 1; min-width: 260px; font-family: var(--mono); }
+    .inspect-row input:focus { outline: none; border-color: var(--accent); }
+    .inspect-row button { background: var(--accent); border: none; color: #fff; font-weight: 600; padding: 11px 18px; border-radius: 10px; font-size: 14px; cursor: pointer; }
+    .inspect-row button:hover { background: var(--accent-2); }
+    .inspect-row button:disabled { opacity: .6; cursor: wait; }
+    #inspect-error { display: none; }
+    #inspect-error.show { display: block; margin: 0 0 12px; padding: 10px 14px; border: 1px solid rgba(248,113,113,.4); background: rgba(248,113,113,.08); border-radius: 10px; color: #fca5a5; font-size: 14px; font-family: var(--mono); }
+    .pi-head { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 8px 0 16px; }
+    .pi-grade { font-size: 34px; font-weight: 800; font-family: var(--mono); width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; border-radius: 14px; border: 1px solid var(--border); background: var(--card); }
+    .pi-grade.A { color: var(--green); } .pi-grade.B { color: var(--accent-2); }
+    .pi-grade.C { color: var(--amber); } .pi-grade.D, .pi-grade.F { color: #f87171; }
+    .pi-id { font-family: var(--mono); font-size: 13px; color: var(--muted); word-break: break-all; }
+    .pi-id b { color: var(--fg); font-size: 15px; }
+    .pi-flags { display: grid; gap: 8px; margin: 14px 0 20px; }
+    .pi-flag { display: flex; gap: 10px; align-items: baseline; padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card); font-size: 14px; }
+    .pi-flag .code { font-weight: 700; white-space: nowrap; }
+    .pi-flag .code.bad { color: #f87171; } .pi-flag .code.warn { color: var(--amber); } .pi-flag .code.info { color: var(--accent-2); }
+    .pi-flag .detail { color: var(--muted); }
+    .pi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 16px 0; }
+    .pi-kv { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+    .pi-kv .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
+    .pi-kv .value { font-family: var(--mono); font-size: 15px; margin-top: 3px; word-break: break-all; }
+    table.ladder { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.ladder th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); background: var(--card); }
+    table.ladder td { padding: 10px 14px; border-bottom: 1px solid rgba(38,48,92,.5); font-family: var(--mono); }
+    table.ladder tr:last-child td { border-bottom: none; }
+    table.ladder td.ada-col { font-weight: 700; color: var(--accent-2); }
+    .pi-relays { font-family: var(--mono); font-size: 13px; color: var(--fg); }
+    .pi-relays li { margin-left: 18px; }
+    .inspect-row a.copy-hex { font-family: var(--mono); font-size: 12px; color: var(--accent-2); text-decoration: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; background: var(--bg-2); }
+    .inspect-row a.copy-hex:hover { border-color: var(--accent); }
   </style>
 </head>
 <body data-base="../../">
@@ -149,6 +181,24 @@
           <div class="row-out"><span>Per 1k ADA staked</span><span id="calc-per1000">—</span></div>
         </div>
       </div>
+    </section>
+
+    <!-- Pool Inspector -->
+    <section id="inspect">
+      <h2>Pool Inspector</h2>
+      <p class="section-sub">
+        Paste any <code>pool1…</code> id (or its 56-hex form) to inspect it:
+        live operator metadata from <code>data.cardano.org</code>, a 0–100
+        health score with the exact flags that drive it (retiring,
+        oversaturated, zero pledge, no relays…), and a CIP-16 yield ladder
+        for fixed stake sizes in this pool — with live CoinGecko ADA/USD.
+      </p>
+      <div class="inspect-row">
+        <input id="inspect-input" type="text" placeholder="pool1c8k78ny3xvsfgenhf4yzvpzwgzxmz0t0um0h2xnn2q83vjdr5dj" autocomplete="off" spellcheck="false" />
+        <button id="inspect-btn" type="button">Inspect pool</button>
+      </div>
+      <div id="inspect-error" role="alert"></div>
+      <div id="inspect-result"></div>
     </section>
 
     <!-- How it works -->
