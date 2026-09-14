@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIGHT Market Tracker — live Midnight token market</title>
+<meta name="description" content="Live market tracker for the Midnight NIGHT token — price, market cap, 24h volume, supply, 7d chart and volatility, plus an on-chain cross-check of the Cardano NIGHT policy id. Data from the public CoinGecko API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 130px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .no-data { color: var(--muted); font-size: 14px; padding: 20px 0; text-align: center; }
+  .two-col { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .delta { font-family: var(--mono); font-weight: 600; }
+  .delta.up, .up { color: var(--green); }
+  .delta.down, .down { color: var(--red); }
+  .policy-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(38,48,92,.5); font-size: 13px; }
+  .policy-row:last-child { border-bottom: none; }
+  .policy-row.match { color: var(--green); }
+  .policy-row.mismatch { color: var(--red); }
+  .policy-row code { font-size: 11.5px; word-break: break-all; }
+  .range-bar { position: relative; height: 10px; border-radius: 999px; background: var(--bg-2); overflow: visible; }
+  .range-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+  .range-dot { position: absolute; top: -3px; width: 16px; height: 16px; border-radius: 50%; background: var(--fg); border: 3px solid var(--card); transform: translateX(-50%); }
+  .range-ends { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .circ-bar-wrap { height: 10px; border-radius: 999px; background: var(--bg-2); overflow: hidden; margin: 10px 0 6px; }
+  .circ-bar { height: 100%; width: 0; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--accent-2)); transition: width .6s ease; }
+  .big-price { font-family: var(--mono); font-size: 44px; font-weight: 700; letter-spacing: -1px; }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">the NIGHT token, live</span>
+  </div>
+  <h1>🌙 NIGHT Market Tracker</h1>
+  <p class="sub">The <strong>Midnight NIGHT</strong> token market in one place — live price, market cap,
+  24h volume, supply, a 7-day chart with volatility, and an on-chain cross-check that the
+  Cardano policy id CoinGecko reports is really the NIGHT policy. No key, no login, no
+  private data — just public market facts.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 2 minutes ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Market health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>💹 Market snapshot</h2>
+    <p class="section-sub">Live from the public CoinGecko API. Missing fields render as “–” — this page never invents a number.</p>
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;gap:18px;flex-wrap:wrap">
+        <span class="big-price" id="price">–</span>
+        <span style="font-size:16px">NIGHT / USD</span>
+        <span id="price-delta-24h" style="font-size:15px"></span>
+        <span style="color:var(--muted);font-size:12.5px;font-family:var(--mono)" id="updated"></span>
+      </div>
+      <div id="range" style="max-width:520px;margin-top:14px"></div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Market cap</span><span class="value" id="mcap">–</span></div>
+      <div class="stat"><span class="label">Fully diluted</span><span class="value" id="fdv">–</span></div>
+      <div class="stat"><span class="label">24h volume</span><span class="value" id="vol">–</span><span class="delta" id="turnover" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Rank</span><span class="value" id="token-rank">–</span></div>
+      <div class="stat"><span class="label">All-time high</span><span class="value" id="ath" style="font-size:15px">–</span></div>
+      <div class="stat"><span class="label">7d</span><span class="value" id="chg-7d">–</span></div>
+      <div class="stat"><span class="label">14d</span><span class="value" id="chg-14d">–</span></div>
+      <div class="stat"><span class="label">30d</span><span class="value" id="chg-30d">–</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 7-day price (USD)</h3>
+        <p class="section-sub">Every bar is the highest price of its slice of the week. Hover a bar for the exact value.</p>
+        <div class="spark" id="spark"><div class="no-data">loading…</div></div>
+        <div class="legend" id="chart-legend"><span>…</span><span>…</span></div>
+        <div class="stat-grid" style="margin-top:16px;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+          <div class="stat"><span class="label">Week open</span><span class="value" style="font-size:15px" id="st-first">–</span></div>
+          <div class="stat"><span class="label">Last</span><span class="value" style="font-size:15px" id="st-last">–</span></div>
+          <div class="stat"><span class="label">7d high</span><span class="value" style="font-size:15px" id="st-high">–</span></div>
+          <div class="stat"><span class="label">7d low</span><span class="value" style="font-size:15px" id="st-low">–</span></div>
+          <div class="stat"><span class="label">7d change</span><span class="value" style="font-size:15px" id="st-change">–</span></div>
+          <div class="stat"><span class="label">7d volatility</span><span class="value" style="font-size:15px" id="st-vol">–</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🧾 Supply</h3>
+        <p class="section-sub">Midnight NIGHT has a fixed public supply of 24,000,000,000.</p>
+        <div class="stat" style="margin-bottom:10px"><span class="label">Circulating</span><span class="value" style="font-size:15px" id="circ">–</span></div>
+        <div class="circ-bar-wrap"><div class="circ-bar" id="circ-bar"></div></div>
+        <div style="font-family:var(--mono);font-size:11.5px;color:var(--muted)" id="circ-pct">–</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <div class="stat" style="margin-bottom:10px"><span class="label">Total supply</span><span class="value" style="font-size:15px" id="total">–</span></div>
+        <div class="stat"><span class="label">Max supply</span><span class="value" style="font-size:15px" id="max">–</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>🔗 Where NIGHT lives</h3>
+        <p class="section-sub">NIGHT is a native Cardano asset and is also listed on BSC. The Cardano row is cross-checked against the known NIGHT policy id used by the Glacier Drop thaw math — if CoinGecko ever reports a different contract, the page flags it.</p>
+        <div id="policy"><div class="policy-row" style="color:var(--muted)">loading…</div></div>
+        <div style="margin-top:10px;font-size:13px;color:var(--muted)" id="bsc-policy"></div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:16px 0">
+        <div style="font-size:13.5px" id="token-links" class="section-sub">loading…</div>
+      </div>
+      <div class="card">
+        <h3>🧠 About this dashboard</h3>
+        <p>Data: public <a href="https://www.coingecko.com/en/coins/midnight" target="_blank" rel="noopener">CoinGecko</a>
+        API (<code>midnight-3</code>) — <code>/coins/midnight-3</code> and
+        <code>/coins/midnight-3/market_chart?days=7</code>. The market health score is a transparent rubric
+        (complete data, momentum, tradable turnover, 7d history + stability, supply sanity, policy cross-check),
+        computed in
+        <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/night-market/src/nightmarket.js"><code>nightmarket.js</code></a>
+        and covered by 26 unit tests. Volatility is the standard deviation of 1-step percentage returns.
+        If an endpoint stops reporting a field, this page shows <span style="font-family:var(--mono)">–</span>
+        rather than inventing a number.</p>
+        <p class="foot-note">This is an informational tool, not financial advice. Prices and market data
+        come from a third-party aggregator — verify against the source before relying on them.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
