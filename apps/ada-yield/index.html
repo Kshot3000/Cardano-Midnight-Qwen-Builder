@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ada Yield Tracker — Cardano Midnight Qwen Builder</title>
+  <meta name="description" content="Live Cardano staking yield tracker: network APY, top stake pools, saturation, and a per-delegation calculator — powered by real data.cardano.org (Koios) mainnet data and the official CIP-16 reward formula." />
+  <link rel="stylesheet" href="../../styles.css" />
+  <style>
+    .app-hero { padding: 48px 0 24px; }
+    .app-hero h1 { font-size: clamp(28px, 4vw, 44px); }
+    .app-hero .sub { color: var(--muted); max-width: 760px; font-size: 17px; }
+    .status-loading { display: inline-flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 13px; color: var(--muted); }
+    .status-loading.hide { display: none; }
+    .spinner { width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent-2); border-radius: 50%; animation: spin .8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #load-error { display: none; }
+    #load-error.show { display: block; margin: 18px 0; padding: 12px 16px; border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); border-radius: 10px; color: var(--amber); font-size: 14px; }
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 24px 0 8px; }
+    .sum { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+    .sum .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; }
+    .sum .value { font-size: 22px; font-weight: 700; font-family: var(--mono); margin-top: 4px; }
+    .sum .value.accent { color: var(--accent-2); }
+    .sum .hint { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+    table.pools { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.pools th { text-align: left; padding: 12px 14px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--card); }
+    table.pools td { padding: 11px 14px; border-bottom: 1px solid rgba(38,48,92,.5); vertical-align: middle; }
+    table.pools tr:last-child td { border-bottom: none; }
+    table.pools tr:hover { background: rgba(99,102,241,.06); }
+    .c-idx { color: var(--muted); font-family: var(--mono); width: 34px; }
+    .c-name { font-family: var(--mono); font-weight: 600; }
+    .c-name .tag.sat { margin-left: 8px; color: var(--amber); background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.3); }
+    .c-num { font-family: var(--mono); color: var(--fg); }
+    .c-apy { font-family: var(--mono); font-weight: 700; color: var(--green); min-width: 120px; }
+    .apy-bar { height: 4px; background: var(--bg-2); border-radius: 3px; margin-top: 4px; overflow: hidden; }
+    .apy-bar > div { height: 100%; background: linear-gradient(90deg, var(--green), var(--accent-2)); }
+    .c-sat { min-width: 120px; }
+    .sat-track { height: 6px; background: var(--bg-2); border-radius: 4px; overflow: hidden; }
+    .sat-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); }
+    .empty { text-align: center; color: var(--muted); padding: 28px !important; }
+    .calc { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+    @media (max-width: 720px) { .calc { grid-template-columns: 1fr; } }
+    .calc .fields { display: grid; gap: 14px; }
+    .calc label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .calc input { width: 100%; background: var(--bg-2); border: 1px solid var(--border); border-radius: 8px; color: var(--fg); font-family: var(--mono); padding: 10px 12px; font-size: 15px; }
+    .calc input:focus { outline: none; border-color: var(--accent); }
+    .calc .out .value { font-size: 26px; font-weight: 700; font-family: var(--mono); color: var(--accent-2); }
+    .calc .out .row-out { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(38,48,92,.5); font-size: 14px; }
+    .calc .out .row-out span:last-child { font-family: var(--mono); font-weight: 600; }
+    .search-row { display: flex; gap: 12px; align-items: center; margin: 18px 0 12px; flex-wrap: wrap; }
+    .search-row input { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; color: var(--fg); padding: 10px 14px; font-size: 14px; flex: 1; min-width: 220px; }
+    .search-row input:focus { outline: none; border-color: var(--accent); }
+    #search-count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .howto { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+    .howto h3 { margin-top: 0; }
+    .howto code { white-space: nowrap; }
+    .updated { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+    .foot-note a { color: var(--accent-2); }
+  </style>
+</head>
+<body data-base="../../">
+  <main class="container">
+    <div class="app-hero">
+      <div class="community-tag">
+        <span class="ct-pill ct-cardano">💎 Cardano</span>
+        <span class="ct-note">Live mainnet staking yield — no key, no API</span>
+      </div>
+      <h1>Ada Yield Tracker</h1>
+      <p class="sub">
+        Real, live Cardano staking yield from
+        <code>data.cardano.org</code> (Koios mainnet). The network reward pot,
+        current epoch, and every top stake pool are computed with the
+        <strong>official CIP-16 reward formula</strong> — the same math the
+        Cardano Foundation calculator uses. No API key, no backend, no fake numbers.
+      </p>
+      <div class="row" style="margin-top:18px">
+        <span id="status-loading" class="status-loading hide"><span class="spinner"></span> loading live data…</span>
+        <span id="live-pill" class="live-pill"><span class="dot stale"></span> connecting…</span>
+        <span class="updated">updated <span id="updated">—</span></span>
+      </div>
+      <div id="load-error" role="alert"></div>
+    </div>
+
+    <!-- Network summary -->
+    <section>
+      <div class="summary">
+        <div class="sum"><div class="label">Epoch</div><div class="value accent" id="sum-epoch">—</div><div class="hint">last completed</div></div>
+        <div class="sum"><div class="label">Reward pot / epoch</div><div class="value" id="sum-pot">—</div><div class="hint">fees + ρ·reserves, ×(1−τ)</div></div>
+        <div class="sum"><div class="label">Network APY</div><div class="value accent" id="sum-apy">—</div><div class="hint">pot ÷ staked × 73</div></div>
+        <div class="sum"><div class="label">Circulating ADA</div><div class="value" id="sum-circ">—</div><div class="hint">in supply</div></div>
+        <div class="sum"><div class="label">Staked ADA (pools)</div><div class="value" id="sum-stake">—</div><div class="hint">active pool stake</div></div>
+        <div class="sum"><div class="label">Live pools</div><div class="value" id="sum-pools">—</div><div class="hint">with active stake</div></div>
+        <div class="sum"><div class="label">ρ · τ · k</div><div class="value" id="sum-rho">—</div><div class="hint" id="sum-tau-hint">ρ <span id="sum-tau">—</span> τ · k <span id="sum-k">—</span></div></div>
+        <div class="sum"><div class="label">Top APY pool</div><div class="value" id="sum-top">—</div><div class="hint"><span id="sum-topapy">—</span> net APY</div></div>
+      </div>
+    </section>
+
+    <!-- Pool table -->
+    <section>
+      <h2>Top stake pools</h2>
+      <p class="section-sub">Ranked by active stake. Net APY = CIP-16 reward minus operator fixed cost and margin, split pro-rata, annualised over 73 epochs.</p>
+      <div class="search-row">
+        <input id="search" type="search" placeholder="Filter by ticker or pool id…" autocomplete="off" />
+        <span id="search-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="pools">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Pool</th>
+              <th>Active stake</th>
+              <th>Pledge</th>
+              <th>Margin</th>
+              <th>Net APY</th>
+              <th>Saturation</th>
+            </tr>
+          </thead>
+          <tbody id="pools"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Calculator -->
+    <section>
+      <h2>What's my yield?</h2>
+      <p class="section-sub">Model your delegation: enter the stake in a pool, its operator margin, and fixed cost to see your net APY and annual payout.</p>
+      <div class="card calc">
+        <div class="fields">
+          <div>
+            <label for="calc-stake">Your stake (ADA)</label>
+            <input id="calc-stake" type="number" min="0" step="any" value="10000" />
+          </div>
+          <div>
+            <label for="calc-margin">Operator margin (%)</label>
+            <input id="calc-margin" type="number" min="0" max="100" step="0.1" value="5" />
+          </div>
+          <div>
+            <label for="calc-cost">Operator fixed cost (ADA)</label>
+            <input id="calc-cost" type="number" min="0" step="any" value="340" />
+          </div>
+        </div>
+        <div class="out">
+          <div class="value" id="calc-apy">—</div>
+          <div class="row-out"><span>Net / epoch</span><span id="calc-epoch">—</span></div>
+          <div class="row-out"><span>Net / year</span><span id="calc-annual">—</span></div>
+          <div class="row-out"><span>Per 1k ADA staked</span><span id="calc-per1000">—</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- How it works -->
+    <section>
+      <h2>How the numbers are made</h2>
+      <div class="howto">
+        <h3>Reward pot (per epoch)</h3>
+        <p>
+          <code>P = (fees + ρ · reserves) · (1 − τ)</code> — the live treasury
+          fees plus the reserve decay (<code>ρ = monetaryExpansion</code>) are
+          pooled, then the treasury cut (<code>τ = treasuryCut</code>) is removed.
+          All three values are read from <code>/totals</code> and
+          <code>/cli_protocol_params</code> at the last completed epoch.
+        </p>
+        <h3>Per-pool reward (CIP-16)</h3>
+        <p>
+          Each pool earns
+          <code>P/(1+a0) · (σ′ + s′·a0·((σ′ − s′·(z0−σ′)/z0))/z0) · perf</code>
+          where <code>σ = stake/S</code>, <code>σ′ = min(σ, z0)</code>,
+          <code>s′ = min(pledge/S, z0)</code> and <code>z0 = 1/k</code>. The
+          <code>perf</code> (performance) factor is assumed optimal (1.0) for
+          every pool. This is the exact formula in the Cardano Foundation
+          calculator.
+        </p>
+        <h3>Net delegator yield</h3>
+        <p>
+          The pool's gross reward pays the operator's fixed cost first, then the
+          operator's margin; the remainder is split pro-rata across staked ADA.
+          APY = (net per ADA) × 73 epochs. A pool is
+          <span class="tag sat">sat</span> when its stake reaches
+          <code>S/k</code> (optimal size) — past that, per-ADA yield falls.
+        </p>
+        <p class="foot-note">
+          Data: <a href="https://data.cardano.org" target="_blank" rel="noopener">data.cardano.org</a>
+          (keyless Koios-compatible mainnet API, CORS <code>*</code>). Formula:
+          <a href="https://docs.cardano.org/about-cardano/learn/pledging-rewards" target="_blank" rel="noopener">docs.cardano.org · Pledging &amp; rewards</a>.
+          Rewards are ADA-denominated and approximate — they assume optimal
+          performance and exclude relaying/fees. Not financial advice.
+        </p>
+      </div>
+    </section>
+
+    <!-- Donate -->
+    <section id="donate">
+      <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+    </section>
+  </main>
+  <script src="../../assets/common.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

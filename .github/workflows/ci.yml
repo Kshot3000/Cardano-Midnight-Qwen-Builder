@@ -20,6 +20,8 @@ jobs:
         run: node --test apps/agent-proof/test/proofs.test.mjs
       - name: Run Midnight DID Wallet tests
         run: node --test apps/midnight-did-wallet/test/did.test.mjs
+      - name: Run Ada Yield Tracker tests
+        run: node --test apps/ada-yield/test/rewards.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
