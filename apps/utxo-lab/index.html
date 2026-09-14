@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UTxO Lab — Cardano coin-selection simulator</title>
+<meta name="description" content="Interactive Cardano coin-selection lab: pick UTxO inputs, plan outputs, and see the exact fee, bytes, min-output-ADA rule, change and dust handling a real transaction would get. Pure client-side engine, unit-tested.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .lab-grid { grid-template-columns: 1fr; } }
+  textarea.uta {
+    width: 100%; min-height: 150px; resize: vertical;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.6;
+    background: var(--bg-2); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; box-sizing: border-box;
+  }
+  .lab-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 14px 0; }
+  .lab-controls label { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  select.uta-sel {
+    font-family: var(--mono); font-size: 13px; background: var(--bg-2); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
+  }
+  .fee-hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .fee-hero .big { font-family: var(--mono); font-size: 26px; font-weight: 700; }
+  .fee-hero .big .u { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  table.uta { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.uta th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.uta td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.uta tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .verdict { border-radius: 12px; padding: 14px 16px; font-size: 14px; margin-top: 14px; }
+  .verdict.ok { background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.4); color: var(--green); }
+  .verdict.bad { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.4); color: var(--red); }
+  .verdict .c-mono { font-size: 13px; }
+  .rule-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+  .rule-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .rule-card h4 { margin: 0 0 8px; font-size: 14px; }
+  .rule-card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .rule-card .f { font-family: var(--mono); font-size: 12px; color: var(--accent-2); margin-top: 8px; display: block; }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">UTxO mechanics, made visible</span>
+  </div>
+  <h1>🧪 UTxO Lab</h1>
+  <p class="sub">Cardano doesn't have a balance — it has <strong>UTxOs</strong>. Every transaction
+  spends whole inputs and re-emits what's left as change. This lab runs the real planning math
+  offline: coin selection, the <code>44 + 15.3·bytes</code> fee, the minimum-output-Ada rule that
+  scales with multi-asset data, dust folding, and the 16&nbsp;k UTxO-set cap.</p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="lab-grid">
+      <div class="card">
+        <h3>📥 Inputs — available UTxOs</h3>
+        <p class="section-sub">One per line: <code>ADA [txhash#idx]</code>. Hashes are optional (shown in the plan). Decimals are fine.</p>
+        <textarea class="uta" id="in-utxos" spellcheck="false" placeholder="50.0 deadbeef…#0
+100.0
+25.5 cafef00d…#3"></textarea>
+      </div>
+      <div class="card">
+        <h3>📤 Outputs — what to send</h3>
+        <p class="section-sub">One per line: <code>ADA</code>. Add <code>+N</code> for ~N bytes of multi-asset token data (each 34-byte unit adds 1 ADA minimum), or <code>@script</code> for a Plutus output.</p>
+        <textarea class="uta" id="in-outputs" spellcheck="false" placeholder="120.0
+42.5 +8
+3.0 @script"></textarea>
+      </div>
+    </div>
+    <div class="lab-controls">
+      <label>Strategy
+        <select class="uta-sel" id="sel-strategy">
+          <option value="smallest">smallest-first</option>
+          <option value="largest">largest-first</option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="chk-fold" checked> fold dust change into an output</label>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🧮 Planned transaction</h2>
+    <p class="section-sub">What the node would actually build: selected inputs, final outputs, change, and the linear fee.</p>
+    <div class="fee-hero">
+      <div class="stat"><span class="label">Total in</span><span class="big" id="o-in">–</span></div>
+      <div class="stat"><span class="label">Total out</span><span class="big" id="o-out">–</span></div>
+      <div class="stat"><span class="label">Change</span><span class="big" id="o-change">–</span></div>
+      <div class="stat"><span class="label">Fee</span><span class="big" id="o-fee">–</span></div>
+      <div class="stat"><span class="label">Est. bytes</span><span class="big" id="o-bytes">–</span></div>
+    </div>
+    <div id="o-verdict"></div>
+    <div class="table-wrap" style="margin-top:16px">
+      <table class="uta">
+        <thead><tr><th>#</th><th>Role</th><th>Amount (Ada)</th><th>Min-output rule</th><th>Ref</th></tr></thead>
+        <tbody id="o-tbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">Add some inputs and outputs above.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📐 The rules, in plain numbers</h2>
+    <p class="section-sub">Every number on this page comes from these four constants — the same ones a node enforces when it validates.</p>
+    <div class="rule-grid">
+      <div class="rule-card"><h4>💸 Linear fee</h4><p>The minimum fee is proportional to transaction size. A 1-in/2-out send (~230 bytes) costs just 3,563 µAda.</p><span class="f">minFee = 44 + 15.3 · bytes</span></div>
+      <div class="rule-card"><h4>⚖️ Minimum output</h4><p>Every output must hold at least 1 Ada — plus 0.25 Ada per 34 bytes of token data. A multi-asset output with 8 tokens (100 bytes) must hold 4 Ada.</p><span class="f">minOut = 1 + 0.25 · ⌈bytes/34⌉ Ada</span></div>
+      <div class="rule-card"><h4>🫧 Dust folding</h4><p>If change is below the minimum, it can't be its own output. Wallets fold the dust into an existing plain output instead of losing it to fees.</p><span class="f">change &lt; minOut ⇒ fold</span></div>
+      <div class="rule-card"><h4>🪟 UTxO-set cap</h4><p>Mainnet rejects transactions that would push the UTxO set past 16,384 entries — a hard cap that drives pruning and hygiene.</p><span class="f">|UTxO set| ≤ 16 384</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this lab</h3>
+      <p>Everything runs in your browser against the pure engine in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/utxo-lab/src/coinselect.js"><code>coinselect.js</code></a>,
+      covered by unit tests (<a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/utxo-lab/test/coinselect.test.mjs"><code>coinselect.test.mjs</code></a>).
+      Byte estimates use standard on-chain sizes (120 B/input, 55 B/plain output, 34 B per multi-asset unit,
+      1070 B Plutus budget), so the fee is an excellent approximation of what the network will charge.
+      No wallet, no key, no network — nothing ever leaves this page.</p>
+      <p class="foot-note">Educational tool: real wallets may choose different inputs, and the network's
+      exact byte count depends on the precise script/token payload. Verify amounts before signing anything.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
