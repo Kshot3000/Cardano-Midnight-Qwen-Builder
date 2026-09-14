@@ -36,6 +36,8 @@ jobs:
         run: node --test apps/governance-watch/test/governance.test.mjs
       - name: Run Block Watch tests
         run: node --test apps/block-watch/test/blocks.test.mjs
+      - name: Run Privacy Trend Watch tests
+        run: node --test apps/privacy-watch/test/privacy.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

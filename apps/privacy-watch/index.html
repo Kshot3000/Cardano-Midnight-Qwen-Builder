@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Trend Watch — live Midnight shielded-ratio dashboard</title>
+<meta name="description" content="Live Midnight privacy dashboard — shielded vs unshielded transaction ratio over any window (1h to 7d), hourly activity trend, unshielded-incident register with decoded payloads, and a transparent 0–100 privacy health score. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .spark .col.u { background: linear-gradient(180deg, var(--red), rgba(248,113,113,.5)); }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .pill.warn { color: var(--amber); border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  .window-bar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 4px; }
+  .window-bar button {
+    font-family: var(--mono); font-size: 13px; cursor: pointer;
+    background: var(--bg-2); color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px;
+  }
+  .window-bar button.active { color: var(--fg); border-color: var(--accent); background: rgba(129,140,248,.12); }
+  table.pw { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.pw th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.pw td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); vertical-align: top; }
+  table.pw tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .kv { display: flex; justify-content: space-between; font-size: 13.5px; padding: 6px 0; border-bottom: 1px solid rgba(38,48,92,.5); }
+  .kv:last-child { border-bottom: none; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-family: var(--mono); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-note">selective disclosure, measured honestly</span>
+  </div>
+  <h1>🕵️ Privacy Trend Watch</h1>
+  <p class="sub">Midnight is a privacy chain — but "privacy" only matters if it's
+  <em>actually happening on-chain, right now</em>. This dashboard measures the live shielded
+  ratio of Midnight transactions, hour by hour, over any window from 1 hour to 7 days, and
+  catalogs every unshielded transaction it finds with the decoded payload. No private data
+  is involved — it's all public ledger fact.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+  <div class="window-bar" id="window-bar" role="group" aria-label="Observation window">
+    <button data-hours="1">1h</button>
+    <button data-hours="6">6h</button>
+    <button data-hours="24" class="active">24h</button>
+    <button data-hours="72">3d</button>
+    <button data-hours="168">7d</button>
+  </div>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Privacy health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🛡️ Shielded ratio — trailing <span id="win-label">24</span>h</h2>
+    <p class="section-sub">Every Midnight transaction in the window, classified shielded vs unshielded. The ratio is recomputed from the raw counts — not just copied from the API — and cross-checked against the API-reported value.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Midnight txs in window</span><span class="value" id="st-total">–</span></div>
+      <div class="stat"><span class="label">Shielded</span><span class="value" id="st-shielded">–</span><span class="delta" id="st-shielded-pct" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Unshielded</span><span class="value" id="st-unshielded">–</span><span class="delta" id="st-unshielded-pct" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Contract calls</span><span class="value" id="st-calls">–</span></div>
+      <div class="stat"><span class="label">Contract deploys</span><span class="value" id="st-deploys">–</span></div>
+      <div class="stat"><span class="label">API-reported ratio</span><span class="value" id="st-reported">–</span><span class="delta" id="st-delta" style="color:var(--muted)"></span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 Hourly Midnight activity</h3>
+        <p class="section-sub" id="spark-sub">Each bar is one hour of Midnight transactions, oldest left, newest right. Bars turn red when the hour contained unshielded transactions.</p>
+        <div class="spark" id="trend-spark"></div>
+        <div class="legend" id="trend-legend"><span>…</span><span>…</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Avg tx / hour</span><span class="value" id="trend-avg">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Peak hour</span><span class="value" id="trend-max">–</span><span class="delta" id="trend-max-hour" style="color:var(--muted)"></span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📊 Half-window growth</h3>
+        <p class="section-sub">The second half of the window's tx volume vs the first half — activity that doesn't need a marketing deck to explain it.</p>
+        <div id="growth-body" class="section-sub">loading…</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <h3>🌐 Lifetime context</h3>
+        <p class="section-sub" id="lifetime-body" style="margin-bottom:0">loading…</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🚨 Unshielded-incident register</h2>
+    <p class="section-sub">Every <em>unshielded</em> Midnight transaction in the window — decoded from the indexer's payload: which addresses, tokens, and amounts moved in the open. Deduplicated (the indexer is known to emit the same tx twice). A privacy chain's ledger of exceptions, on the record.</p>
+    <div class="table-wrap">
+      <table class="pw">
+        <thead>
+          <tr><th>Midnight block</th><th>Age</th><th>Addresses</th><th>Tokens</th><th>Value (spent / created)</th></tr>
+        </thead>
+        <tbody id="incident-tbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/analytics/privacy?hours=N</code> (N up to 168) and
+      <code>/api/analytics/overview</code> for lifetime context. The privacy health score is a transparent
+      rubric (shielding dominant, sustained activity, stable flow, unshielded rare, self-consistent),
+      computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/privacy-watch/src/privacy.js"><code>privacy.js</code></a>
+      and covered by 23 unit tests. The shielded ratio shown is <em>recomputed</em> from raw counts and
+      cross-checked against the API-reported value; if the indexer stops exposing a field, this page
+      shows <span class="pill live">–</span> rather than inventing a number. No private data is involved —
+      every unshielded transaction is public on the Midnight ledger.</p>
+      <p class="foot-note">"Shielded" means the transaction's inputs/outputs were processed through Midnight's
+      shielded pool (zkSNARK-backed selective disclosure). Unshielded transactions are still valid Midnight
+      transactions — they simply chose transparency (common for contract calls and token management ops).
+      This is an informational tool — verify figures against the official explorer before relying on them.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
