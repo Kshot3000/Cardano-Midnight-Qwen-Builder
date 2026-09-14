@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Midnight DID Wallet — build & inspect did:midnight identities</title>
+<meta name="description" content="Build a did:midnight offchain identity and inspect any did:midnight DID entirely in your browser — spec-conformant BLAKE2s-256, the MOD1 offchain-state codec, DID parsing, and the projected DID Document. 100% local, zero network calls.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .wallet-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .wallet-grid { grid-template-columns: 1fr; } }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-weight: 700; font-size: 12px; color: var(--muted); margin-bottom: 5px; letter-spacing: .02em; }
+  .field input, .field select {
+    width: 100%; background: var(--bg-2); color: var(--fg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 12px; font-family: var(--mono); font-size: 13px;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .hint { color: var(--muted); font-size: 11px; margin-top: 4px; }
+  .relops { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin: 8px 0 4px; }
+  .relops label { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 13px; color: var(--fg); cursor: pointer; }
+  .relops input { width: 15px; height: 15px; accent-color: var(--accent); }
+  .svc-row { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; margin-bottom: 8px; }
+  .svc-row input { background: var(--bg-2); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; width: 100%; }
+  .svc-row input:focus { outline: none; border-color: var(--accent); }
+  .aka-row { display: grid; grid-template-columns: 1fr 32px; gap: 8px; margin-bottom: 6px; align-items: center; }
+  .aka-row input { background: var(--bg-2); color: var(--fg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-family: var(--mono); font-size: 12px; width: 100%; }
+  .aka-del { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; cursor: pointer; font-size: 15px; line-height: 1; }
+  .aka-del:hover { color: var(--red); border-color: var(--red); }
+  .did-out {
+    font-family: var(--mono); font-size: 12px; line-height: 1.5; word-break: break-all;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+  }
+  .did-out.empty { color: var(--muted); }
+  .verdict { font-size: 14px; font-weight: 700; padding: 12px 14px; border-radius: 12px; margin: 0 0 14px; border: 1px solid; }
+  .verdict.ok { color: var(--green); background: rgba(52,211,153,0.08); border-color: rgba(52,211,153,0.4); }
+  .verdict.bad { color: var(--red); background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.4); }
+  .verdict.mut { color: var(--muted); background: var(--bg-2); border-color: var(--border); }
+  pre.doc {
+    font-family: var(--mono); font-size: 11px; line-height: 1.5; background: var(--bg-2);
+    border: 1px solid var(--border); border-radius: 12px; padding: 14px; overflow: auto; max-height: 460px;
+    color: var(--fg);
+  }
+  .meta-line { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 10px 0; }
+  .meta-line b { color: var(--accent-2); }
+  textarea.inspect {
+    width: 100%; min-height: 90px; resize: vertical; background: var(--bg-2); color: var(--fg);
+    border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: var(--mono); font-size: 12px;
+  }
+  textarea.inspect:focus { outline: none; border-color: var(--accent); }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 4px 10px; font-family: var(--mono); font-size: 12px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { color: var(--fg); word-break: break-all; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <h1>🪪 Midnight DID Wallet</h1>
+  <p class="sub">Build a <strong>did:midnight</strong> identity and inspect any <em>did:midnight</em> DID —
+  <strong>entirely in your browser</strong>. The same spec-conformant codec the tests run: a
+  pure-JS BLAKE2s-256, the <code>MOD1</code> offchain-state framing, self-hashing long-form DIDs,
+  and the projected W3C DID Document. <strong>Zero network calls — nothing leaves your machine.</strong></p>
+  <div class="row">
+    <button class="btn primary" id="btn-spec">Load the spec example</button>
+    <button class="btn" id="btn-random">Random identity</button>
+    <button class="btn" id="btn-clear">Clear</button>
+    <a class="btn" href="SPEC.md" target="_blank" rel="noopener">Method spec →</a>
+  </div>
+</div>
+
+<section style="padding-top:0">
+  <div class="container">
+    <div class="wallet-grid">
+      <!-- ===== builder ===== -->
+      <div class="card">
+        <h3>🛠 Identity builder</h3>
+        <p class="section-sub">Fill in the state, then build a self-contained <code>did:midnight:offchain</code> DID.</p>
+
+        <div class="field">
+          <label for="f-aka">Also known as (alsoKnownAs) — up to 4</label>
+          <div id="aka-list"></div>
+          <button class="btn" id="add-aka" style="margin-top:6px">+ add an identifier</button>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label>Verification method (one key)</label>
+          <div class="svc-row" style="grid-template-columns:1.2fr 1fr;margin-bottom:8px">
+            <div class="field" style="margin:0"><label for="f-curve">Curve / key type</label>
+              <select id="f-curve">
+                <option value="Ed25519">Ed25519 (OKP)</option>
+                <option value="X25519">X25519 (OKP)</option>
+                <option value="Jubjub">Jubjub (EC)</option>
+                <option value="P-256">P-256 (EC)</option>
+                <option value="secp256k1">secp256k1 (EC)</option>
+                <option value="BLS12381G1">BLS12381G1 (OKP)</option>
+                <option value="BLS12381G2">BLS12381G2 (OKP)</option>
+              </select>
+            </div>
+            <div class="field" style="margin:0"><label for="f-kid">Key id (must start with <code>#</code>)</label>
+              <input id="f-kid" value="#holder-key-1" spellcheck="false"></div>
+          </div>
+          <div class="field" style="margin:0"><label for="f-x">publicKeyJwk.x — base64url</label>
+            <input id="f-x" spellcheck="false">
+            <div class="hint" id="x-hint"></div></label>
+            <button class="btn" id="gen-key" style="margin-top:8px">⟳ generate random demo key</button>
+          </div>
+          <div class="field" style="margin:0" id="y-wrap">
+            <label for="f-y">publicKeyJwk.y — base64url (elliptic only)</label>
+            <input id="f-y" spellcheck="false"></div>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:14px">
+          <label>Relationships</label>
+          <div class="relops" id="relops"></div>
+        </div>
+
+        <div class="field" style="margin-top:14px">
+          <label>Services — up to 4</label>
+          <div id="svc-list"></div>
+          <button class="btn" id="add-svc" style="margin-top:6px">+ add a service</button>
+        </div>
+
+        <div class="row" style="margin-top:16px">
+          <button class="btn primary" id="btn-build">Build DID →</button>
+          <span class="hint" id="build-meta"></span>
+        </div>
+      </div>
+
+      <!-- ===== result ===== -->
+      <div class="card">
+        <h3>🪪 Built DID</h3>
+        <div id="verdict" class="verdict mut">No identity built yet — load the spec example or build your own.</div>
+        <div class="field"><label>did:midnight (long, self-contained)</label>
+          <div class="did-out empty" id="out-did">— build one —</div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="copy-did">Copy DID</button>
+            <span class="hint" id="out-hash"></span>
+          </div>
+        </div>
+        <div class="field"><label>Projected DID Document</label>
+          <pre class="doc" id="out-doc">{ "hint": "the W3C DID Document projection will appear here" }</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== inspector ===== -->
+<section>
+  <div class="container">
+    <div class="card">
+      <h3>🔍 DID inspector</h3>
+      <p class="section-sub">Paste any <code>did:midnight</code> DID. Long offchain DIDs are decoded and their
+      state hash re-verified; short offchain and ledger DIDs are parsed and summarized. All local.</p>
+      <textarea class="inspect" id="inspect-in" spellcheck="false" placeholder="did:midnight:mainnet:0123…  or  did:midnight:offchain:&lt;hash&gt;[:&lt;state&gt;]"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="btn primary" id="btn-inspect">Inspect</button>
+      </div>
+      <div id="inspect-out" style="margin-top:16px"></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="grid">
+      <div class="card">
+        <h3>📐 The method, honestly</h3>
+        <p><strong>Offchain DIDs</strong> embed their own state: <code>did:midnight:offchain:&lt;BLAKE2s-256 hash&gt;:&lt;base64url MOD1 state&gt;</code>.
+        The resolver recomputes the hash from the state and <em>rejects</em> any mismatch — so a long DID is
+        self-verifying the moment it lands, no registry lookup needed.</p>
+        <div class="tags"><span class="tag purple">Midnight</span><span class="tag">self-hashing</span><span class="tag">MOD1</span></div>
+      </div>
+      <div class="card">
+        <h3>🧮 BLAKE2s-256, in the browser</h3>
+        <p>Browsers don't ship BLAKE2s. The wallet carries a dependency-free, pure-JS BLAKE2s-256
+        that is cross-checked byte-for-byte against Node's native implementation across a full
+        block-size sweep in the test suite — no WASM, no npm install.</p>
+        <div class="tags"><span class="tag purple">pure JS</span><span class="tag">BLAKE2s-256</span><span class="tag">no deps</span></div>
+      </div>
+      <div class="card">
+        <h3>🔑 Ledger DIDs</h3>
+        <p>On-chain identities are <code>did:midnight:&lt;network&gt;:&lt;64-hex contract id&gt;</code> across
+        <code>undeployed / devnet / testnet / mainnet / preview / preprod</code>. This wallet encodes and
+        parses them; the contract state itself lives on-chain.</p>
+        <div class="tags"><span class="tag purple">ledger</span><span class="tag">contract-id</span></div>
+      </div>
+      <div class="card">
+        <h3>🧪 Tested, not vibes</h3>
+        <p>The exact module behind this page ships 25 unit tests, anchored to the official spec test
+        vector (<code>3c08b857…fc21</code>) and cross-checked against Node-native BLAKE2s. What you see
+        is what the tests prove.</p>
+        <div class="tags"><span class="tag">25 tests</span><span class="tag">node:test</span><span class="tag">spec vector</span></div>
+      </div>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

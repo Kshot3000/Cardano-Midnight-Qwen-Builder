@@ -14,16 +14,15 @@ builds are listed here. Newest first in each section.
 | Nightwatch | 2026-09-13 | Standardized privacy-health dashboard (growth, DUST, health score), 20 unit tests |
 | AgentProof explorer | 2026-09-13 | Paste-any-receipt escrow auditor — 7 re-derivable checks (proof commitments, separation of duties, accounting, audit trail) in a local browser page, 64 unit tests incl. E2E against the real escrow state machine |
 | Ecosystem "tag" for communities | 2026-09-13 | Repo tagged `midnightntwrk` (exact label indexers scan) + README attribution sentence + "Built for Midnight / Built for Cardano" badge on the site + PR to the official Midnight awesome-dapps list (#189) + ready-to-post community announcements (`docs/announcements.md`) |
+| Midnight DID Wallet | 2026-09-14 | Build a `did:midnight` identity + inspect any DID in-browser — pure-JS BLAKE2s-256, spec-conformant MOD1 offchain-state codec (byte-for-byte against the official spec vector `3c08b857…fc21`), self-hashing DIDs, projected W3C DID Document. Zero network calls, 25 unit tests |
 
 ## 🚧 Up next
 
-1. **Midnight DID mini-wallet** — web wallet scaffold around `did:midnight`
-   identities and the 1AM `connectedAPI`.
-2. **Ada Yield Tracker** — staking pool stats + delegation calculator for
+1. **Ada Yield Tracker** — staking pool stats + delegation calculator for
    Cardano, with an interactive pool comparison table.
-3. **Glacier Drop checker** — status UI for Midnight Glacier drop claims
+2. **Glacier Drop checker** — status UI for Midnight Glacier drop claims
    (public status only, no private data).
-4. **Nightwatch: active-address + retention** — wire in the moment the
+3. **Nightwatch: active-address + retention** — wire in the moment the
    public indexer exposes address-level analytics.
 
 ## Principles
