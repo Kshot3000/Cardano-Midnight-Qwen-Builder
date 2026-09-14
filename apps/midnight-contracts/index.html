@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contract Watch — Midnight smart-contract ecosystem</title>
+<meta name="description" content="Live dashboard for the Midnight smart-contract ecosystem — contract census, call concentration, activity mix, deployment trend, and a top-contracts leaderboard, built on a byte-exact Midnight contract-address codec. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .stat-grid.three { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+  .stat-card { background: rgba(255,255,255,.02); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+  .stat-card.good { border-color: rgba(52,211,153,.35); }
+  .stat-card.accent { border-color: rgba(129,140,248,.35); }
+  .stat-card.warn { border-color: rgba(251,191,36,.35); }
+  .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 6px; }
+  .stat-value { font-family: var(--mono); font-size: 26px; font-weight: 700; }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .bars { display: grid; gap: 10px; margin-top: 14px; }
+  .bar-row { display: grid; gap: 5px; }
+  .bar-top { display: flex; justify-content: space-between; font-size: 13px; }
+  .bar-val { font-family: var(--mono); color: var(--muted); }
+  .bar-track { height: 10px; background: rgba(255,255,255,.05); border-radius: 999px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; background: var(--accent); }
+  .bar-fill.good { background: var(--green, #34d399); }
+  .bar-fill.warn { background: #fbbf24; }
+  .bar-fill.bad { background: var(--red, #f87171); }
+  .bar-fill.muted { background: #64748b; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; padding: 10px 0; }
+  .spark-bar { flex: 1; min-width: 3px; border-radius: 2px 2px 0 0; background: linear-gradient(180deg, var(--accent-2), var(--accent)); opacity: .9; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; margin-top: 14px; }
+  table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.tbl th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  table.tbl td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); vertical-align: middle; }
+  table.tbl tr:last-child td { border-bottom: none; }
+  table.tbl td.num, table.tbl th.num { text-align: right; font-family: var(--mono); }
+  table.tbl td.rank { color: var(--muted); font-family: var(--mono); width: 30px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; color: var(--accent-2, #a5b4fc); text-decoration: none; }
+  .mono:hover { text-decoration: underline; }
+  .digest-note { display: block; font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; }
+  .badge { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--border); color: var(--muted); }
+  .badge.act-active { color: var(--green, #34d399); border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .badge.act-dormant { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  .badge.act-abandoned { color: #f87171; border-color: rgba(248,113,113,.4); background: rgba(248,113,113,.08); }
+  .badge.act-dead { color: #64748b; border-color: rgba(100,116,139,.4); background: rgba(100,116,139,.08); }
+  .badge-warn { display: inline-block; font-size: 10.5px; color: #fbbf24; margin-left: 8px; }
+  tr.act-active td:first-child { border-left: 2px solid rgba(52,211,153,.5); }
+  tr.act-abandoned { opacity: .75; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .live-pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; color: var(--muted); border: 1px solid var(--border); }
+  .live-pill.live { color: var(--green, #34d399); border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .live-pill.partial { color: #fbbf24; border-color: rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2, #a5b4fc); }
+  .card { background: var(--card, rgba(255,255,255,.02)); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; }
+  .card + .card { margin-top: 16px; }
+  .card h2 { margin: 0 0 6px; font-size: 19px; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-note">on-chain facts only</span>
+  </div>
+  <h1>📜 Contract Watch</h1>
+  <p class="sub">Midnight is the private sibling of Cardano, and its smart contracts are the story of
+  what the ecosystem is actually building. This dashboard counts every deployed contract, tracks which
+  ones are still being called, and shows how concentrated all the call volume is — every contract
+  address decoded with a byte-exact codec for Midnight's
+  <code>midnight:contract-address[v2]:</code> format. No private data, just on-chain facts.</p>
+  <p class="section-sub" style="margin-bottom:0">
+  <span class="live-pill" id="status">connecting…</span>
+  &nbsp;·&nbsp; data as of <span id="updated" class="mono">—</span></p>
+</div>
+
+<main class="container" id="app" style="padding-top:8px">
+  <p class="muted">Loading live Midnight mainnet data…</p>
+</main>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/analytics/contracts</code> (leaderboard + daily
+      deployments) and <code>/api/contracts/deployed</code> (deploy-event stream). Every Midnight contract
+      address is exactly 126 hex chars: <code>0x</code> + the 30-byte ASCII tag
+      <code>midnight:contract-address[v2]:</code> (60 hex) + a 32-byte digest (64 hex). The codec in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/midnight-contracts/src/address.js"><code>address.js</code></a>
+      and the analytics in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/midnight-contracts/src/analyze.js"><code>analyze.js</code></a>
+      are covered by 44 unit tests against real captured mainnet data. If the indexer stops exposing a
+      field, this page shows <span class="muted">—</span> rather than inventing a number.
+      Activity states: <span class="badge act-active">active</span> called in the last 7 days,
+      <span class="badge act-dormant">dormant</span> 8–90 days, <span class="badge act-abandoned">abandoned</span>
+      over 90 days, <span class="badge act-dead">never called</span> zero interactions.</p>
+      <p class="foot-note">This is an informational tool — verify amounts and finality against official
+      sources before relying on them. Contract rows deep-link to the NightForge explorer.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

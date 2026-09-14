@@ -28,6 +28,8 @@ jobs:
         run: node --test apps/glacier-drop/test/glacier.test.mjs
       - name: Run Bridge Watch tests
         run: node --test apps/bridge-watch/test/bridge.test.mjs
+      - name: Run Contract Watch tests
+        run: node --test apps/midnight-contracts/test/address.test.mjs apps/midnight-contracts/test/analyze.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
