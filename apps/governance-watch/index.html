@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Governance Watch — Midnight governance dashboard</title>
+<meta name="description" content="Live dashboard for Midnight on-chain governance — council and technical-committee motions, vote tallies, approval thresholds, authority membership resets, and a transparent 0–100 governance health score. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .st-approved { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.1); }
+  .st-rejected { color: var(--red); border: 1px solid rgba(248,113,113,.4); background: rgba(248,113,113,.1); }
+  .st-active { color: var(--amber); border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.1); }
+  .tally-bar { display: flex; height: 10px; border-radius: 6px; overflow: hidden; background: var(--bg-2); min-width: 120px; }
+  .tally-bar .yes { background: var(--green); }
+  .tally-bar .no { background: var(--red); }
+  .motion-row { padding: 14px 0; border-bottom: 1px solid rgba(38,48,92,.5); }
+  .motion-row:last-child { border-bottom: none; }
+  .motion-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  .motion-hash { font-family: var(--mono); font-size: 13px; color: var(--fg); }
+  .motion-meta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .tally-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .tally-num { font-family: var(--mono); font-size: 13px; }
+  .tally-num .yes { color: var(--green); }
+  .tally-num .no { color: var(--red); }
+  .committee-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .committee-head h3 { margin: 0; }
+  .committee-count { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  table.gv { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.gv th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.gv td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.gv tr:last-child td { border-bottom: none; }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .member-chip { display: inline-block; font-family: var(--mono); font-size: 11px; color: var(--muted); background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; margin: 2px; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">who actually runs the network — live</span>
+  </div>
+  <h1>🏛️ Governance Watch</h1>
+  <p class="sub">Midnight is run by its <strong>council</strong> and <strong>technical committee</strong> —
+  the authorities that decide protocol changes and rotate the federated membership. This dashboard makes
+  that power boringly auditable: every motion, its threshold, who voted, and the exact running tally —
+  plus the authority-membership resets that change who holds the keys. No private data, just on-chain facts.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Governance health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📊 Governance at a glance</h2>
+    <p class="section-sub">Lifetime governance actions (proposals, votes, and authority resets), the current authority size, and when the last action landed.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Total governance actions</span><span class="value" id="total-actions">–</span></div>
+      <div class="stat"><span class="label">Council motions</span><span class="value" id="council-count">–</span><span class="delta" id="council-status" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Tech-committee motions</span><span class="value" id="tech-count">–</span><span class="delta" id="tech-status" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Authority size (current)</span><span class="value" id="auth-size">–</span><span class="delta" id="auth-rotations" style="color:var(--muted)"></span></div>
+      <div class="stat"><span class="label">Last activity</span><span class="value" id="last-activity" style="font-size:16px">–</span><span class="delta" id="last-activity-age" style="color:var(--muted)"></span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🗳️ Motions &amp; votes</h2>
+    <p class="section-sub">Every motion each authority has put to a vote, with its approval threshold and the final running tally. A motion is <span class="pill st-approved">approved</span> when yes-votes reach the threshold, <span class="pill st-rejected">rejected</span> when even a full yes-turnout could no longer reach it, and <span class="pill st-active">active</span> while it's still undecided.</p>
+    <div class="two-col">
+      <div class="card">
+        <div class="committee-head">
+          <h3>👑 Council</h3>
+          <span class="committee-count" id="council-count-2">–</span>
+        </div>
+        <div id="council-motions"><p class="section-sub">loading…</p></div>
+      </div>
+      <div class="card">
+        <div class="committee-head">
+          <h3>⚙️ Technical Committee</h3>
+          <span class="committee-count" id="tech-count-2">–</span>
+        </div>
+        <div id="tech-motions"><p class="section-sub">loading…</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🔄 Authority membership resets</h2>
+    <p class="section-sub">Each time the federated authority's member set changes — the people (and their public keys) who hold the keys to decide protocol changes. Most recent first, deduplicated.</p>
+    <div class="table-wrap">
+      <table class="gv">
+        <thead>
+          <tr><th>Reset #</th><th>Midnight block</th><th>Members</th><th>When</th></tr>
+        </thead>
+        <tbody id="resets-tbody"><tr><td colspan="4" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/governance</code>. That endpoint reports the council and
+      technical-committee proposal and vote events plus the authority (federated-membership) resets. The explorer
+      emits each vote as a <em>cumulative running tally</em> (and a voter can re-vote), so this dashboard takes the
+      tally from the <strong>latest</strong> vote event for each motion as the authoritative result. The governance
+      health score is a transparent four-part rubric (motions being decided, quorum participation, a populated &amp;
+      rotating authority, and recent activity), computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/governance-watch/src/governance.js"><code>governance.js</code></a>
+      and covered by 31 unit tests. If the indexer stops exposing a field, this page shows
+      <span class="pill" style="color:var(--muted);border:1px solid var(--border)">–</span> rather than inventing a number.</p>
+      <p class="foot-note">Motion hashes and voter / member SS58 keys are on-chain identifiers shown as-is — they are
+      public, not personal data. The "approval threshold" is the size of the authority the motion is decided by. This is
+      an informational tool; verify governance state against official sources before relying on it.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

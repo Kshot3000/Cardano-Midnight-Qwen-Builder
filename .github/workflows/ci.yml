@@ -32,6 +32,8 @@ jobs:
         run: node --test apps/midnight-contracts/test/address.test.mjs apps/midnight-contracts/test/analyze.test.mjs
       - name: Run NIGHT Market Tracker tests
         run: node --test apps/night-market/test/market.test.mjs
+      - name: Run Governance Watch tests
+        run: node --test apps/governance-watch/test/governance.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
