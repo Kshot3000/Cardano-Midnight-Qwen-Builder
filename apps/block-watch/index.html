@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Block Watch — Midnight block production, verified</title>
+<meta name="description" content="Live Midnight block-production dashboard — latest block, pace, per-block gap chart, hash-chain and height-contiguity verification over the last 120 blocks, Cardano epoch progress, and a transparent 0–100 block-health score. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .spark .col.bad { background: linear-gradient(180deg, var(--red), var(--red)); }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  table.bw { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.bw th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.bw td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.bw tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .verdict { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .verdict.ok { color: var(--green); }
+  .verdict.bad { color: var(--red); }
+  .audit-row { display: flex; flex-direction: column; gap: 10px; padding: 14px 0; border-bottom: 1px solid rgba(38,48,92,.5); }
+  .audit-row:last-child { border-bottom: none; }
+  .audit-row .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
+  .epoch-track { height: 10px; border-radius: 6px; background: var(--bg-2); overflow: hidden; margin-top: 10px; }
+  .epoch-fill { height: 100%; width: calc(var(--pct, 0) * 1%); background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 6px; }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">the block layer, verified</span>
+  </div>
+  <h1>⛓ Block Watch</h1>
+  <p class="sub">Every Midnight block is a promise: a hash, a parent, a slot. This dashboard checks
+  those promises on the live chain — the last 120 blocks' <strong>hash chain verified link by link</strong>,
+  heights checked for skipped numbers, cadence measured against the 6-second target, and the
+  Cardano epoch progress the Midnight node is tracking. No private data — just the public chain.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Block production health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>⏱ Latest block &amp; pace</h2>
+    <p class="section-sub">The newest Midnight block and the observed production pace over the 120-block window.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Latest block</span><span class="value" id="latest-height">–</span></div>
+      <div class="stat"><span class="label">Block hash</span><span class="value c-mono" id="latest-hash" style="font-size:17px">–</span></div>
+      <div class="stat"><span class="label">Age</span><span class="value" id="latest-age">–</span></div>
+      <div class="stat"><span class="label">Blocks / minute</span><span class="value" id="blocks-per-min">–</span><span class="delta" style="color:var(--muted)">window pace</span></div>
+      <div class="stat"><span class="label">Avg block gap</span><span class="value" id="avg-gap">–</span><span class="delta" style="color:var(--muted)">target 6s</span></div>
+      <div class="stat"><span class="label">Network age</span><span class="value" id="network-age">–</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 Block gap — last 120 blocks</h3>
+        <p class="section-sub">Each bar is the seconds between one block and the next, oldest left, newest right. A steady ~6s cadence means a straight skyline; a red bar is a negative gap (out-of-order timestamps).</p>
+        <div class="spark" id="gap-spark"></div>
+        <div class="legend"><span>oldest</span><span>newest</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Fastest gap</span><span class="value" id="gap-min">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Slowest gap</span><span class="value" id="gap-max">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Negative gaps</span><span class="value" id="gap-neg">–</span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🔍 Chain audit</h3>
+        <p class="section-sub">Two independent structural checks over the whole 120-block window.</p>
+        <div class="audit-row">
+          <div class="label">Hash chain (parent_hash of each block == hash of the previous)</div>
+          <div id="chain-row" class="section-sub">loading…</div>
+        </div>
+        <div class="audit-row">
+          <div class="label">Height contiguity (no skipped block numbers)</div>
+          <div id="contig-row" class="section-sub">loading…</div>
+        </div>
+        <div class="audit-row">
+          <div class="label">Cardano epoch</div>
+          <div id="epoch-label" class="section-sub" style="font-family:var(--mono)">–</div>
+          <div class="epoch-track"><div class="epoch-fill" id="epoch-bar" style="--pct:0"></div></div>
+          <div id="epoch-text" class="section-sub" style="margin-top:8px">loading…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🕗 Latest 10 blocks</h2>
+    <p class="section-sub">Newest first, with the hash-chain link to the block below it re-checked in your browser.</p>
+    <div class="table-wrap">
+      <table class="bw">
+        <thead>
+          <tr><th>Height</th><th>Hash</th><th>Extrinsics</th><th>Age</th><th>Link</th></tr>
+        </thead>
+        <tbody id="recent-tbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/blocks?limit=120</code> and
+      <code>/api/analytics/overview</code>. The chain audit re-verifies every parent-hash link and
+      height step in the fetched window entirely in your browser; the block health score is a transparent
+      rubric (intact chain, contiguous heights, steady 6s cadence, fresh tip), computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/block-watch/src/blocks.js"><code>blocks.js</code></a>
+      and covered by 28 unit tests. Epoch progress assumes a 5-day Cardano epoch span when the
+      epoch start is not exposed — the % and remaining minutes are then labeled as approximations.
+      If the indexer stops exposing a field, this page shows <span class="pill live">–</span> rather
+      than inventing a number.</p>
+      <p class="foot-note">This is an informational tool over public chain data — verify anything
+      security-critical against official Midnight sources before relying on it.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>

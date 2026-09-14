@@ -34,6 +34,8 @@ jobs:
         run: node --test apps/night-market/test/market.test.mjs
       - name: Run Governance Watch tests
         run: node --test apps/governance-watch/test/governance.test.mjs
+      - name: Run Block Watch tests
+        run: node --test apps/block-watch/test/blocks.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest
