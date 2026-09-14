@@ -26,6 +26,8 @@ jobs:
         run: node --test apps/ada-yield/test/poolid.test.mjs apps/ada-yield/test/poolhealth.test.mjs
       - name: Run Glacier Drop tests
         run: node --test apps/glacier-drop/test/glacier.test.mjs
+      - name: Run Bridge Watch tests
+        run: node --test apps/bridge-watch/test/bridge.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bridge Watch — Cardano ↔ Midnight bridge health</title>
+<meta name="description" content="Live health dashboard for the Cardano ↔ Midnight bridge — lifetime bridge ops, 24h volume, hourly trend, 12h-vs-12h growth, Cardano block confirmations, and a transparent 0–100 bridge health score. Data from the public NightForge explorer API.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  table.bw { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.bw th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.bw td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.bw tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">the two chains, connected — live</span>
+  </div>
+  <h1>🌉 Bridge Watch</h1>
+  <p class="sub">The <strong>Cardano ↔ Midnight bridge</strong> is the settlement seam between the two
+  chains — every operation confirms a Cardano block into Midnight. This dashboard makes that seam
+  boringly auditable: lifetime volume, 24h flow, hourly trend, and the exact Cardano blocks
+  being bridged — no private data, just on-chain facts.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 60 seconds ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Bridge health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📦 Bridge volume</h2>
+    <p class="section-sub">Lifetime bridge operations, trailing-24h volume, and the current Cardano mainchain context the bridge is confirming.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Lifetime bridge ops</span><span class="value" id="total-ops">–</span></div>
+      <div class="stat"><span class="label">Ops in last 24h</span><span class="value" id="last24-ops">–</span></div>
+      <div class="stat"><span class="label">Ops / Cardano block</span><span class="value" id="ops-per-block">–</span><span class="delta" style="color:var(--muted)">recent window</span></div>
+      <div class="stat"><span class="label">Cardano epoch</span><span class="value" id="cardano-epoch">–</span></div>
+      <div class="stat"><span class="label">Cardano slot</span><span class="value" id="cardano-slot">–</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 Hourly bridge ops — last 24h</h3>
+        <p class="section-sub">Each bar is one hour of bridge operations, oldest left, newest right. A healthy bridge is a steady bar chart, not a spike.</p>
+        <div class="spark" id="trend-spark"></div>
+        <div class="legend" id="trend-legend"><span>…</span><span>…</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Avg ops / hour</span><span class="value" id="trend-avg">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Peak hour</span><span class="value" id="trend-max">–</span><span class="delta" id="trend-max-hour" style="color:var(--muted)"></span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>📊 12h vs 12h trend</h3>
+        <p class="section-sub">The most recent 12 hours of bridge volume vs the 12 hours before them — growth that doesn't need a roadmap slide to explain it.</p>
+        <div id="growth-body" class="section-sub">loading…</div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:18px 0">
+        <h3>ℹ️ What a "bridge op" is</h3>
+        <p class="section-sub" style="margin:0">A bridge operation is an extrinsic on Midnight that
+        confirms a Cardano block header (or the assets/proofs inside it). One Cardano block can produce
+        several ops — that ratio is shown above.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🕗 Recent bridge operations</h2>
+    <p class="section-sub">The newest operations as reported by the explorer — Midnight extrinsic hash, Midnight block, the referenced Cardano block, and how old it is.</p>
+    <div class="table-wrap">
+      <table class="bw">
+        <thead>
+          <tr><th>Bridge op (Midnight extrinsic)</th><th>Midnight block</th><th>Cardano block</th><th>Age</th></tr>
+        </thead>
+        <tbody id="recent-tbody"><tr><td colspan="4" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+      (<code>mainnet.nightforge.jp</code>) — <code>/api/analytics/bridge</code> and
+      <code>/api/analytics/overview</code>. The bridge health score is a transparent rubric (steady flow,
+      sustained 24h volume, stable 12h-vs-12h trend, fresh observations), computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/bridge-watch/src/bridge.js"><code>bridge.js</code></a>
+      and covered by 26 unit tests. If the indexer stops exposing a field, this page shows
+      <span class="pill live">–</span> rather than inventing a number. No private data is involved —
+      bridge operations are public on both chains.</p>
+      <p class="foot-note">Cardano data is the mainchain context the Midnight node tracks
+      (epoch/slot). Bridge operations confirmed per Cardano block are derived from the recent
+      operations window and labeled as such. This is an informational tool — verify amounts and
+      finality against official sources before relying on them.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
