@@ -44,6 +44,8 @@ jobs:
         run: node --test apps/l1-sync/test/sync.test.mjs
       - name: Run Validator Watch tests
         run: node --test apps/validator-watch/test/producers.test.mjs
+      - name: Run Reward Flow tests
+        run: node --test apps/reward-flow/test/flow.test.mjs apps/reward-flow/test/mainnet.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

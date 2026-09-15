@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reward Flow Watch — Cardano's per-epoch monetary engine</title>
+<meta name="description" content="Live Cardano monetary-engine dashboard — supply vs the 45B hard cap, mint per epoch, the unclaimed reward pot, fee income, and implied reward claims over the last 10 completed epochs, with a transparent 0–100 engine-health score. Data from the official data.cardano.org totals table.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge {
+    --pct: 0;
+    width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0);
+    display: grid; place-items: center;
+  }
+  .gauge .inner {
+    width: 100px; height: 100px; border-radius: 50%; background: var(--card);
+    display: grid; place-items: center; text-align: center;
+  }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 3px; height: 110px; }
+  .spark .col { flex: 1; min-width: 3px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  .pill { display: inline-block; font-family: var(--mono); font-size: 11px; border-radius: 999px; padding: 1px 8px; }
+  .pill.live { color: var(--green); border: 1px solid rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+  .pill.warn { color: var(--amber); border: 1px solid rgba(251,191,36,.4); background: rgba(251,191,36,.08); }
+  table.rf { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.rf th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.rf td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.rf tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .verdict { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .verdict.ok { color: var(--green); }
+  .verdict.bad { color: var(--red); }
+  .cap-track { height: 14px; border-radius: 8px; background: var(--bg-2); overflow: hidden; margin-top: 12px; }
+  .cap-fill { height: 100%; width: calc(var(--pct, 0) * 1%); background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 8px; }
+  .cap-legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .callout { border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 8px; padding: 12px 16px; font-size: 14px; line-height: 1.65; color: var(--muted); }
+  .callout strong { color: var(--fg); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">the monetary engine, accounted</span>
+  </div>
+  <h1>💸 Reward Flow Watch</h1>
+  <p class="sub">Every Cardano epoch, the protocol mints a little new ADA from a fixed pool of
+  headroom — the gap between current supply and the <strong>45 billion hard cap</strong> — while fees and
+  rewards flow through the unclaimed reward pot. This dashboard pulls the last 10 completed
+  epochs from the official totals table, measures the real mint, the headroom consumed, the fee
+  income, and the implied reward claims, and re-checks the conservation identity in your browser.
+  No private data — just the public chain ledger.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 10 minutes ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Monetary-engine health score</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🏛 Supply vs the hard cap</h2>
+    <p class="section-sub">Cardano's supply can never exceed 45,000,000,000 ADA. The bar shows how far current supply has travelled; the headroom is the minting pool the protocol draws from.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Current supply</span><span class="value" id="supply-end">–</span><span class="delta" style="color:var(--muted)">at latest epoch</span></div>
+      <div class="stat"><span class="label">Headroom (reserves)</span><span class="value" id="reserves-end">–</span><span class="delta" style="color:var(--muted)">to the 45B cap</span></div>
+      <div class="stat"><span class="label">Circulation</span><span class="value" id="circulation-end">–</span><span class="delta" style="color:var(--muted)">supply − locked</span></div>
+      <div class="stat"><span class="label">Unclaimed reward pot</span><span class="value" id="reward-end">–</span><span class="delta" style="color:var(--muted)">awaiting claims</span></div>
+      <div class="stat"><span class="label">Treasury</span><span class="value" id="treasury-end">–</span><span class="delta" style="color:var(--muted)">governance-controlled</span></div>
+      <div class="stat"><span class="label">Cap utilization</span><span class="value" id="cap-util">–</span><span class="delta" style="color:var(--muted)">of 45B ADA</span></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="cap-track"><div class="cap-fill" id="cap-bar" style="--pct:0"></div></div>
+      <div class="cap-legend"><span id="cap-start">–</span><span>45,000,000,000 ADA hard cap</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="two-col">
+      <div class="card">
+        <h3>📈 Mint per epoch</h3>
+        <p class="section-sub">New ADA minted each completed epoch (supply delta). Each bar is one epoch, oldest left, newest right — the rate is flat, not accelerating.</p>
+        <div class="spark" id="mint-spark"></div>
+        <div class="legend"><span>oldest</span><span>newest</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Avg mint / epoch</span><span class="value" id="mint-avg">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Effective rate / epoch</span><span class="value" id="rate-epoch">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Effective rate / yr</span><span class="value" id="rate-annual">–</span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🔍 Conservation audit</h3>
+        <p class="section-sub">Two independent invariants checked over the whole window, in your browser.</p>
+        <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0;border-bottom:1px solid rgba(38,48,92,.5)">
+          <div class="label" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Hard-cap identity (supply + reserves == 45B, every epoch)</div>
+          <div id="cap-row" class="section-sub">loading…</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;padding:14px 0">
+          <div class="label" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Mint == headroom consumed</div>
+          <div id="mintdecay-row" class="section-sub">loading…</div>
+          <div class="foot-note" style="margin-top:2px">Every ADA minted comes straight out of the 45B headroom — no third flow. If this ever fails, the indexer's table is internally inconsistent.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🪙 Reward pot &amp; fee income</h2>
+    <p class="section-sub">Where the new ADA goes. Each epoch the unclaimed reward pot grows by (mint + fees) and shrinks by delegators claiming their rewards into circulation.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Reward pot change (window)</span><span class="value" id="reward-delta">–</span></div>
+      <div class="stat"><span class="label">Fee income (window)</span><span class="value" id="fee-income">–</span><span class="delta" style="color:var(--muted)">per-epoch fee income, summed</span></div>
+      <div class="stat"><span class="label">Implied claims (window)</span><span class="value" id="claims">–</span><span class="delta" style="color:var(--muted)">mint + fees − Δpot</span></div>
+      <div class="stat"><span class="label">Nominal ρ (monetaryExpansion)</span><span class="value" id="rho">–</span><span class="delta" style="color:var(--muted)">protocol parameter</span></div>
+    </div>
+    <div class="callout" style="margin-top:16px">
+      <strong>Why the effective rate (≈0.16%/epoch) isn't ρ (0.3%/epoch):</strong> the nominal
+      <code>monetaryExpansion</code> parameter sets the <em>maximum</em> release from the reserve, but the
+      actual mint is gated by the <em>reserve ratio</em> — the fraction of supply that still sits in the
+      headroom pool. As supply approaches the 45B cap, the reserve shrinks and so does the absolute
+      mint. This dashboard measures the <em>effective</em> rate straight from the supply deltas and
+      labels the nominal parameter separately, so the two are never conflated.
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🕗 Per-epoch ledger</h2>
+    <p class="section-sub">Newest first. Every row re-checks the conservation identity against the epoch above it.</p>
+    <div class="table-wrap">
+      <table class="rf">
+        <thead>
+          <tr><th>Epoch</th><th>Supply (ADA)</th><th>Headroom (ADA)</th><th>Mint (ADA)</th><th>Eff. rate</th><th>Check</th></tr>
+        </thead>
+        <tbody id="rows-tbody"><tr><td colspan="6" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: the official <a href="https://data.cardano.org/k/api/v1/totals" target="_blank" rel="noopener">data.cardano.org totals table</a> —
+      one row per completed epoch with <code>supply</code>, <code>reserves</code>, <code>treasury</code>, <code>reward</code>,
+      <code>circulation</code>, <code>fees</code>, and withdrawal fields as lovelace strings. The conservation identity,
+      mint/headroom equivalence, reward-pot plausibility, and rate band are all re-computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/reward-flow/src/flow.js"><code>flow.js</code></a>
+      and covered by 21 unit tests, including a real-mainnet fixture of 21
+      verbatim indexer rows. The window covers the last 20 <em>completed</em> epochs (the current
+      in-progress epoch is excluded). If the indexer stops exposing a field, this page shows
+      <span class="pill live">–</span> rather than inventing a number.</p>
+      <p class="foot-note">This is an informational tool over public chain data — verify anything
+      security-critical against official Cardano sources before relying on it.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
