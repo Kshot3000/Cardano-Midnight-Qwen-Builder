@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRep Watch — Cardano's governance delegation census</title>
+<meta name="description" content="Live Cardano governance dashboard — the registered DRep census, how much stake is delegated to DReps each epoch (and its ~88x growth since Conway), active DRep counts, and DRep stake as a share of circulation, with a transparent 0–100 participation-health score. Data from the official data.cardano.org Koios endpoints.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .gauge { --pct: 0; width: 132px; height: 132px; border-radius: 50%; flex: 0 0 auto;
+    background: conic-gradient(var(--gc, var(--green)) calc(var(--pct) * 1%), var(--bg-2) 0); display: grid; place-items: center; }
+  .gauge .inner { width: 100px; height: 100px; border-radius: 50%; background: var(--card); display: grid; place-items: center; text-align: center; }
+  .gauge .inner .n { font-family: var(--mono); font-size: 30px; font-weight: 700; }
+  .gauge .inner .s { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .health-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; flex: 1; min-width: 260px; }
+  .checks li { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); }
+  .checks li .ok { color: var(--green); font-weight: 700; }
+  .checks li .no { color: var(--red); font-weight: 700; }
+  .checks li.pass { color: var(--fg); }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .two-col { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+  table.dw { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.dw th { text-align: left; padding: 10px 12px; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .6px; border-bottom: 1px solid var(--border); }
+  table.dw td { padding: 9px 12px; border-bottom: 1px solid rgba(38,48,92,.5); }
+  table.dw tr:last-child td { border-bottom: none; }
+  .c-mono { font-family: var(--mono); }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--card); }
+  .foot-note { color: var(--muted); font-size: 13px; margin-top: 18px; line-height: 1.7; }
+  .foot-note a { color: var(--accent-2); }
+  .verdict { font-family: var(--mono); font-size: 13px; font-weight: 600; }
+  .verdict.ok { color: var(--green); }
+  .verdict.bad { color: var(--red); }
+  .share-track { height: 18px; border-radius: 10px; background: var(--bg-2); overflow: hidden; margin-top: 12px; }
+  .share-fill { height: 100%; width: calc(var(--pct, 0) * 1%); background: linear-gradient(90deg, var(--green), var(--accent-2)); border-radius: 10px; }
+  .integrity-track { height: 10px; border-radius: 6px; background: var(--bg-2); overflow: hidden; margin-top: 10px; }
+  .integrity-fill { height: 100%; width: calc(var(--pct, 0) * 1%); background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 6px; }
+  .callout { border-left: 3px solid var(--accent); background: var(--bg-2); border-radius: 8px; padding: 12px 16px; font-size: 14px; line-height: 1.65; color: var(--muted); }
+  .callout strong { color: var(--fg); }
+</style>
+</head>
+<body data-base="../../">
+
+<div class="hero container" style="padding-top:48px">
+  <div class="community-tag">
+    <span class="ct-pill ct-midnight">🌙 Midnight</span>
+    <span class="ct-pill ct-cardano">💎 Cardano</span>
+    <span class="ct-note">governance, delegated &amp; accounted</span>
+  </div>
+  <h1>🗳️ DRep Watch</h1>
+  <p class="sub">Since Cardano's Conway era, stake can delegate its vote to a <strong>DRep</strong>
+  (Delegate Representative). This dashboard pulls the live DRep census and every per-epoch delegation
+  snapshot from the official indexer, decodes each <code>drep1…</code> credential in your browser
+  (CIP-129), and tracks how much stake — and how many DReps — are actually participating in
+  governance, against the share of circulating supply. No private data — just the public chain ledger.</p>
+  <p class="section-sub" style="margin-bottom:0">Auto-refreshes every 10 minutes ·
+  <span class="live-pill" id="live-pill"><span class="dot" id="live-dot"></span><span id="live-text">connecting…</span></span></p>
+</div>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <div class="health-hero">
+      <div class="gauge" id="gauge"><div class="inner"><div class="n" id="gauge-n">–</div><div class="s" id="gauge-s">…</div></div></div>
+      <div>
+        <h3 style="margin:0 0 8px">🩺 Governance participation health</h3>
+        <ul class="checks" id="checks"><li>loading…</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📋 DRep census</h2>
+    <p class="section-sub">Who is on the register. The census is the live set of <em>registered</em> DReps;
+    every <code>drep1…</code> id is bech32-decoded in your browser (CIP-129) to check its credential
+    kind — a key hash (header <code>0x22</code>) or a script hash (header <code>0x23</code>) — and the
+    integrity bar measures how well-formed the register is.</p>
+    <div class="stat-grid">
+      <div class="stat"><span class="label">Registered DReps</span><span class="value" id="census-total">–</span><span class="delta" style="color:var(--muted)">on the live register</span></div>
+      <div class="stat"><span class="label">Key-based</span><span class="value" id="census-key">–</span><span class="delta" style="color:var(--muted)">credential header 0x22</span></div>
+      <div class="stat"><span class="label">Script-based</span><span class="value" id="census-script">–</span><span class="delta" style="color:var(--muted)">credential header 0x23</span></div>
+      <div class="stat"><span class="label">Register integrity</span><span class="value" id="census-integrity">–</span><span class="delta" style="color:var(--muted)">ids that decode as CIP-129</span></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="integrity-track"><div class="integrity-fill" id="census-integrity-bar" style="--pct:0"></div></div>
+      <div class="legend"><span>well-formed DRep credentials</span><span>100%</span></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>📈 Delegation over time</h2>
+    <p class="section-sub">How much stake is delegated to DReps each completed epoch, and how many DReps
+    hold delegated stake. Since Conway began, delegated stake has grown roughly two orders of magnitude
+    as stake flows from pools into governance.</p>
+    <div class="two-col">
+      <div class="card">
+        <h3>💠 Delegated stake per epoch</h3>
+        <p class="section-sub">Each bar is one completed epoch, oldest left, newest right.</p>
+        <div class="spark" id="stake-spark"></div>
+        <div class="legend"><span id="stake-legend-l">…</span><span>newest</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Latest epoch</span><span class="value" id="trend-end">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Growth since Conway</span><span class="value" id="trend-growth">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Multiplier</span><span class="value" id="trend-growpct">–</span></span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>🗳️ Active DReps per epoch</h3>
+        <p class="section-sub">Distinct DReps holding delegated stake that epoch.</p>
+        <div class="spark" id="dreps-spark"></div>
+        <div class="legend"><span id="dreps-legend-l">…</span><span>newest</span></div>
+        <div class="row" style="margin-top:14px">
+          <span class="stat" style="flex:1"><span class="label">Active now</span><span class="value" id="trend-active">–</span></span>
+          <span class="stat" style="flex:1"><span class="label">Conway → now</span><span class="value" id="trend-start">–</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🧮 Share of circulation</h2>
+    <p class="section-sub">Delegated DRep stake as a fraction of the latest completed epoch's circulating
+    supply. This is the governance headroom: the portion of the network whose vote currently routes
+    through a DRep rather than a stake pool's pool-voting path.</p>
+    <div class="card">
+      <div class="stat" style="background:transparent;border:none;padding:0">
+        <span class="label">Delegated to DReps</span>
+        <span class="value" id="share-val" style="font-size:34px">–</span>
+        <span class="delta" style="color:var(--muted)">of circulating ADA</span>
+      </div>
+      <div class="share-track"><div class="share-fill" id="share-bar" style="--pct:0"></div></div>
+      <div class="legend"><span>delegated</span><span>100% of circulation</span></div>
+      <div class="callout" style="margin-top:16px">
+        <strong>Reading the share:</strong> a healthy Conway-era DRep share sits in the tens of
+        percent — enough stake that DRep votes carry real weight, low enough that a small number of
+        capture targets can't dominate governance. If this number is pinned at one extreme, it
+        usually means the indexer lost a field, which is why the page shows
+        <code>–</code> (never a fabricated value) when the denominator is unavailable.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:8px">
+  <div class="container">
+    <h2>🕗 Recent epochs</h2>
+    <p class="section-sub">Newest first. Per-epoch delegated stake, active DReps, and the epoch-over-epoch deltas.</p>
+    <div class="table-wrap">
+      <table class="dw">
+        <thead>
+          <tr><th>Epoch</th><th>Delegated (ADA)</th><th>Active DReps</th><th>Δ Stake</th><th>Δ DReps</th></tr>
+        </thead>
+        <tbody id="rows-tbody"><tr><td colspan="5" style="padding:14px;color:var(--muted)">loading…</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>Data: the official
+      <a href="https://data.cardano.org/k/api/v1/drep_list" target="_blank" rel="noopener">data.cardano.org Koios endpoints</a> —
+      <code>drep_list</code> (the registered DRep census),
+      <code>drep_epoch_summary</code> (per-epoch delegated stake + active DRep count, every Conway
+      epoch), <code>totals</code> (per-epoch circulation), and <code>tip</code>. Each
+      <code>drep1…</code> credential is decoded in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/drep-watch/src/codec.js"><code>codec.js</code></a>
+      per CIP-129 — a 1-byte credential header (key <code>0x22</code> / script
+      <code>0x23</code>) plus a 28-byte blake2b-224 hash — and every identity, census tally, growth
+      math, and health score is re-computed in
+      <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/drep-watch/src/trend.js"><code>trend.js</code></a>
+      and covered by 39 unit tests, including the CIP-129 official test vector and a verbatim
+      real-mainnet fixture. If the indexer stops exposing a field, this page shows
+      <span style="color:var(--muted)">–</span> rather than inventing a number.</p>
+      <p class="foot-note">This is an informational tool over public chain data — verify anything
+      security-critical (especially a DRep you're about to delegate to) against official Cardano
+      sources before relying on it.</p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
