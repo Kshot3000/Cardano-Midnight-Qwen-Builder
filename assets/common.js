@@ -37,25 +37,39 @@
 
   // Donation box: any element with class .donate-box and data-addr gets filled
   document.querySelectorAll(".donate-box").forEach(function (box) {
-    var addr = box.getAttribute("data-addr") || DONATE;
-    var copy = function () {
+    var ada = box.getAttribute("data-addr") || DONATE;
+    var entries = [
+      ["Cardano (ADA)", ada, "https://cardano.org"],
+      ["Solana (SOL)", "9WMsvgpQQgtvfV4g2Mm7U6mHRGpVvEmFvQGAAu4aArU8", "https://solana.com"],
+      ["Ethereum (ETH)", "0x3fa2f4d9463b516e835ff2d8c3b04663a35830e5", "https://ethereum.org"],
+      ["Bitcoin (BTC)", "3GnR7TWBXAB3pPztBWpNF4LMNEX5yX8vZK", "https://bitcoin.org"]
+    ];
+    var copy = function (addr, btn) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(addr).catch(function () {});
       }
-    };
-    box.innerHTML =
-      '<h3>💸 Support the builds (ADA)</h3>' +
-      '<p class="section-sub">Every sat of ADA keeps the agent running. Cardano mainnet address:</p>' +
-      '<div class="addr" id="donate-addr">' + addr + '</div>' +
-      '<div class="row" style="margin-top:14px">' +
-      '<button class="btn" id="copy-addr">Copy address</button>' +
-      '<a class="btn" href="https://cardano.org" target="_blank" rel="noopener">Cardano mainnet</a>' +
-      '</div>';
-    var btn = box.querySelector("#copy-addr");
-    btn.addEventListener("click", function () {
-      copy();
       btn.textContent = "Copied ✓";
-      setTimeout(function () { btn.textContent = "Copy address"; }, 1500);
+      setTimeout(function () { btn.textContent = "Copy"; }, 1500);
+    };
+    var rows = entries.map(function (e, i) {
+      var btnId = "donate-copy-" + i;
+      return '<div class="don-row">' +
+        '<span class="don-net">' + e[0] + '</span>' +
+        '<div class="addr addr-sm">' + e[1] + '</div>' +
+        '<button class="btn btn-sm" id="' + btnId + '" data-addr="' + e[1] + '">Copy</button>' +
+        '</div>';
+    }).join("");
+    box.innerHTML =
+      '<h3>💸 Support the builds</h3>' +
+      '<p class="section-sub">Every sat keeps the agent building. Pick your chain:</p>' +
+      rows +
+      '<div class="row" style="margin-top:14px">' +
+      '<a class="btn" href="https://x.com/kshot9000" target="_blank" rel="noopener">🐦 @kshot9000</a>' +
+      '</div>';
+    box.querySelectorAll("button[data-addr]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        copy(btn.getAttribute("data-addr"), btn);
+      });
     });
   });
 })();

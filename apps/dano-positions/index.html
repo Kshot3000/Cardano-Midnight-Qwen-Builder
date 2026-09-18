@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dano Positions — Dano Finance TVL monitor on Cardano</title>
+<meta name="description" content="Live TVL monitor for Dano Finance (Cardano DeFi Kernel): total value locked, 7/30/90-day trends, growth. Data from DefiLlama, refreshed every 60 seconds.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .tvl-hero {
+    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+  .tvl-hero .big { font-family: var(--mono); font-size: 44px; font-weight: 700; line-height: 1; }
+  .tvl-hero .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .delta-row { display: flex; gap: 18px; flex-wrap: wrap; }
+  .delta { text-align: left; }
+  .delta .k { font-family: var(--mono); font-size: 11px; color: var(--accent-2); text-transform: uppercase; letter-spacing: .8px; }
+  .delta .v { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+  .v.pos, .growth-growing { color: var(--green); }
+  .v.neg, .growth-shrinking { color: var(--red); }
+  .growth-flat { color: var(--accent-2); }
+  .range-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .range-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .range-card .k { font-family: var(--mono); font-size: 11px; color: var(--accent-2); text-transform: uppercase; letter-spacing: .8px; }
+  .range-card .n { font-family: var(--mono); font-size: 22px; font-weight: 700; margin: 6px 0 10px; }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 90px; }
+  .spark .col { flex: 1; min-width: 2px; background: linear-gradient(180deg, var(--accent-2), var(--accent)); border-radius: 2px 2px 0 0; opacity: .85; }
+  .status { font-family: var(--mono); font-size: 12px; }
+  .status.ok { color: var(--green); }
+  .status.bad { color: var(--red); }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+  .pill.pending { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<section>
+  <div class="container">
+    <p class="section-sub">
+      <span class="pill">Cardano · DeFi Kernel</span>
+      <span>Auto-refreshes every 60 seconds · </span>
+      <span id="status" class="status">connecting…</span>
+    </p>
+
+    <div class="tvl-hero">
+      <div>
+        <div class="lbl">Dano Finance TVL</div>
+        <div class="big" id="tvl-now">–</div>
+      </div>
+      <div class="delta-row">
+        <div class="delta"><div class="k">24h</div><div class="v" id="delta-1d">–</div></div>
+        <div class="delta"><div class="k">7d</div><div class="v" id="delta-7d">–</div></div>
+        <div class="delta"><div class="k">30d</div><div class="v" id="delta-30d">–</div></div>
+        <div class="delta"><div class="k">Trend</div><div class="v growth-label" id="growth-label">–</div></div>
+      </div>
+    </div>
+
+    <div class="range-grid" style="margin-top:16px">
+      <div class="range-card">
+        <div class="k">Avg TVL · 7d</div>
+        <div class="n" id="range-7d">–</div>
+        <div class="spark" id="spark-7d"></div>
+      </div>
+      <div class="range-card">
+        <div class="k">Avg TVL · 30d</div>
+        <div class="n" id="range-30d">–</div>
+        <div class="spark" id="spark-30d"></div>
+      </div>
+      <div class="range-card">
+        <div class="k">Avg TVL · 90d</div>
+        <div class="n" id="range-90d">–</div>
+        <div class="spark" id="spark-90d"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>📋 Markets</h3>
+      <p class="section-sub">
+        Per-market utilization, borrow rates, and position data are
+        <span class="pill pending">pending — no public API yet</span>. Dano Finance exposes
+        wallet-connected data through its own frontend (
+        <a href="https://dano.finance" target="_blank" rel="noopener">dano.finance</a>); until a stable
+        public endpoint exists, this dashboard shows verified protocol-level TVL only.
+        Honest disclosure over fake numbers.
+      </p>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>
+        Data: public <a href="https://defillama.com/protocol/dano-finance" target="_blank" rel="noopener">DefiLlama</a>
+        protocol API (<code>api.llama.fi/protocol/dano-finance</code>) — daily TVL history plus current
+        on-chain TVL for Cardano. Computed by
+        <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/dano-positions/src/dano.js"><code>dano.js</code></a>
+        and covered by unit tests. Last data point: <span id="updated">–</span>.
+      </p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
