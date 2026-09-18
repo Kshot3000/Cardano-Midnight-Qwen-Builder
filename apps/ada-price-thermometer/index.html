@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADA Price Thermometer — multi-source ADA/USD agreement</title>
+<meta name="description" content="Three keyless ADA/USD quotes — Minswap DEX aggregator, CoinGecko, DefiLlama — fused into a consensus price, an agreement score (0-100), a source-spread readout, and a 24h warming/cooling trend. Refreshes every 60s.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .thermo-hero {
+    display: flex; align-items: center; gap: 32px; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px;
+  }
+  .thermo-hero .big { font-family: var(--mono); font-size: 46px; font-weight: 700; line-height: 1; }
+  .thermo-hero .lbl { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .gauge-wrap { flex: 1; min-width: 260px; }
+  .gauge {
+    position: relative; height: 22px; border-radius: 999px;
+    background: var(--bg-soft, rgba(255,255,255,.04));
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .gauge .fill { position: absolute; inset: 0; width: var(--fill, 0%);
+    background: linear-gradient(90deg, var(--red), var(--accent-2) 55%, var(--green)); }
+  .gauge .ticks { position: absolute; inset: 0; display: flex; }
+  .gauge .ticks span { flex: 1; border-right: 1px solid rgba(255,255,255,.06); }
+  .gauge .ticks span:last-child { border-right: none; }
+  .gauge-scale { display: flex; justify-content: space-between; margin-top: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .score-line { display: flex; align-items: baseline; gap: 12px; margin-top: 10px; }
+  .score-line .n { font-family: var(--mono); font-size: 28px; font-weight: 700; }
+  .consensus-label { font-family: var(--mono); font-size: 13px; letter-spacing: .5px; }
+  .consensus-label.strong { color: var(--green); }
+  .consensus-label.solid { color: var(--accent-2); }
+  .consensus-label.soft { color: #eab308; }
+  .consensus-label.div { color: var(--red); }
+  .consensus-label.ind { color: var(--muted); }
+  .trend { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  .trend.warm { color: var(--green); }
+  .trend.steady { color: var(--accent-2); }
+  .trend.cool { color: #eab308; }
+  .trend.chill { color: var(--red); }
+  .trend.flat { color: var(--muted); }
+  table.sources { width: 100%; border-collapse: collapse; background: var(--card);
+    border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table.sources th, table.sources td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  table.sources tr:last-child td { border-bottom: none; }
+  table.sources th { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .8px; color: var(--muted); }
+  table.sources td.num { font-family: var(--mono); font-size: 15px; }
+  table.sources td.src { font-size: 14px; }
+  table.sources tr.row-fail { opacity: .5; }
+  .fail { color: var(--red); }
+  .status { font-family: var(--mono); font-size: 12px; }
+  .status.ok { color: var(--green); }
+  .status.bad { color: var(--red); }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+</style>
+</head>
+<body data-base="../../">
+
+<section>
+  <div class="container">
+    <p class="section-sub">
+      <span class="pill">Cardano · ADA/USD</span>
+      <span>Auto-refreshes every 60 seconds · </span>
+      <span id="status" class="status">connecting…</span>
+    </p>
+
+    <div class="thermo-hero">
+      <div>
+        <div class="lbl">Consensus ADA price</div>
+        <div class="big" id="consensus-price">–</div>
+        <div class="lbl" id="consensus-sub" style="margin-top:6px">–</div>
+        <div style="margin-top:14px; display:flex; gap:16px; align-items:baseline; flex-wrap:wrap">
+          <span id="trend" class="trend">–</span>
+          <span id="med-change" class="status">–</span>
+        </div>
+      </div>
+      <div class="gauge-wrap">
+        <div class="lbl" style="margin-bottom:8px">Source agreement</div>
+        <div class="gauge"><div class="fill" id="gauge-needle" style="--fill:0%"></div><div class="ticks"><span></span><span></span><span></span><span></span><span></span></div></div>
+        <div class="gauge-scale"><span>0 · divergent</span><span>50</span><span>100 · strong</span></div>
+        <div class="score-line">
+          <span class="n" id="gauge-score">–</span>
+          <span class="consensus-label ind" id="consensus-label">…</span>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin:28px 0 10px">Sources</h3>
+    <table class="sources">
+      <thead><tr><th>Source</th><th>ADA price</th><th>24h</th><th>Δ vs consensus</th></tr></thead>
+      <tbody id="src-rows"></tbody>
+    </table>
+    <p class="section-sub" style="margin-top:10px;font-size:12px;color:var(--muted)">
+      Spread = (max−min) ÷ median × 100. Score = (100 − min(spread,2.5)·40) × (n/3), rounded.
+      24h trend uses the median of available 24h changes. Deviations &lt; ±0.5% are normal for
+      independent aggregators.
+    </p>
+  </div>
+</section>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
