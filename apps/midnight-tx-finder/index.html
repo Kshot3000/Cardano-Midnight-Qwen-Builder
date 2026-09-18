@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Midnight Tx Finder — Midnight mainnet block lookup</title>
+<meta name="description" content="Look up Midnight mainnet blocks and watch the latest-block feed live. Data from the public NightForge explorer API, refreshed every 60 seconds.">
+<link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+<link rel="stylesheet" href="../../styles.css">
+<style>
+  .lookup { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .lookup input {
+    flex: 1 1 320px; font-family: var(--mono); font-size: 14px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--fg); padding: 12px 14px;
+  }
+  .lookup input:focus { outline: none; border-color: var(--accent); }
+  .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin: 18px 0; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .stat .n { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+  .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-top: 4px; }
+  .feed { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .feed li {
+    display: flex; gap: 14px; align-items: center; flex-wrap: wrap;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; font-size: 14px;
+  }
+  .mono { font-family: var(--mono); }
+  .dim { color: var(--muted); font-size: 13px; }
+  .kv { display: grid; grid-template-columns: 150px 1fr; gap: 6px 12px; }
+  .kv .k { color: var(--muted); font-size: 13px; }
+  .kv .v { font-family: var(--mono); font-size: 14px; }
+  .status { font-family: var(--mono); font-size: 12px; }
+  .status.ok { color: var(--green); }
+  .status.bad { color: var(--red); }
+  .pill { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+  .pill.pending { color: var(--accent-2); }
+</style>
+</head>
+<body data-base="../../">
+
+<section>
+  <div class="container">
+    <p class="section-sub">
+      <span class="pill">Midnight Mainnet</span>
+      <span>Auto-refreshes every 60 seconds · </span>
+      <span id="status" class="status">connecting…</span>
+    </p>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>🔎 Look up a block</h3>
+      <div class="lookup">
+        <input id="q" type="text" placeholder="block height (e.g. 2633000) or 0x hash" spellcheck="false" autocomplete="off">
+        <button class="btn primary" id="lookup-btn">Find</button>
+      </div>
+      <div id="lookup-out"></div>
+      <p class="section-sub" style="margin-top:8px">
+        Tx lookup by hash is <span class="pill pending">pending — not in the public indexer yet</span>.
+        Block-height lookup searches the latest 100 blocks the API serves.
+      </p>
+    </div>
+
+    <h3 style="margin-top:8px">📡 Network overview</h3>
+    <div class="overview" id="overview"></div>
+
+    <h3>🕗 Latest blocks</h3>
+    <ul class="feed" id="feed"></ul>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <div class="card" style="margin-bottom:16px">
+      <h3>🧠 About this dashboard</h3>
+      <p>
+        Data: public <a href="https://nightforge.jp/api/docs" target="_blank" rel="noopener">NightForge explorer API</a>
+        (<code>mainnet.nightforge.jp</code>) — <code>/api/blocks</code> and
+        <code>/api/analytics/overview</code>, both verified returning live JSON.
+        Computed by
+        <a href="https://github.com/Kshot3000/Cardano-Midnight-Qwen-Builder/blob/main/apps/midnight-tx-finder/src/midnight.js"><code>midnight.js</code></a>
+        and covered by unit tests. Tx-by-hash lookup and historical blocks are labeled
+        <span class="pill pending">pending</span> until the public indexer exposes them —
+        honest disclosure over fake numbers.
+      </p>
+    </div>
+    <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
+  </div>
+</section>
+
+<script type="module" src="app.js"></script>
+<script src="../../assets/common.js"></script>
+</body>
+</html>
