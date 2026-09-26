@@ -72,3 +72,7 @@ whole dashboard logic is testable offline.
 node --test apps/midnight-contracts/test/address.test.mjs
 node --test apps/midnight-contracts/test/analyze.test.mjs
 ```
+
+## Compact auth caution (MPS-0029)
+
+When this dashboard links out to Compact examples, treat **`ownPublicKey()` as non-authoritative** for access control. Prefer witness-derived identity (see [MPS-0029](https://github.com/midnightntwrk/midnight-improvement-proposals/blob/main/mps/mps-0029-compact-caller-identity.md) and Midnight-GrokBot-Agent `contracts/agent-escrow`). Starters: [example-bboard](https://github.com/midnightntwrk/example-bboard), [create-mn-app](https://github.com/midnightntwrk/create-mn-app) — not archived `example-counter`.
