@@ -102,6 +102,19 @@ class Escrow:
         self._escrow_id = escrow_id or "escrow_" + hashlib.sha256(
             (client + agent + str(time.time_ns())).encode()
         ).hexdigest()[:8]
+        # Separation of duties / Compact MPS-0029 analogue:
+        # never register the agent as an approver (agentPk ≠ approverPk).
+        # On Midnight, roles become witness-derived persistentHash commitments —
+        # never authorize with ownPublicKey() alone.
+        for a in approvers or []:
+            if not isinstance(a, str) or not a:
+                raise EscrowError("BAD_CONFIG", "approvers must be non-empty strings")
+            if a == agent:
+                raise EscrowError(
+                    "BAD_CONFIG",
+                    "agent cannot be registered as an approver "
+                    "(separation of duties; Compact: MPS-0029)",
+                )
         self._approvers = {client, *(approvers or [])}
         self._state = CREATED
         self._funded = 0

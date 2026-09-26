@@ -259,6 +259,17 @@ class EscrowTest(unittest.TestCase):
             Escrow(client="same", agent="same", now=lambda: T0)
         self.assertCode("BAD_CONFIG", ctx.exception)
 
+    def test_agent_cannot_be_approver_at_create(self):
+        with self.assertRaises(EscrowError) as ctx:
+            Escrow(
+                client="client-addr",
+                agent="agent-addr",
+                approvers=["auditor-addr", "agent-addr"],
+                milestones=[],
+                now=lambda: T0,
+            )
+        self.assertCode("BAD_CONFIG", ctx.exception)
+
     def test_late_approval_flagged(self):
         e = standard_escrow()
         e.fund(10 * L, now=T0 + 1)

@@ -103,6 +103,24 @@ Invariants OK: released + refunded == funded, audit seqs monotonic.
 Blocked as designed: SELF_APPROVAL — the agent cannot approve its own work</pre>
       <p style="margin-bottom:0">Run it yourself: <code>node apps/agent-escrow/demo.js</code> or <code>python apps/agent-escrow/demo.py</code>.</p>
     </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h3>🌙 Compact port · MPS-0029</h3>
+      <p>JS + Python here are the off-chain reference. Port to Midnight with witness-derived
+      role commitments — <strong>never authorize with <code>ownPublicKey()</code> alone</strong> (MPS-0029).
+      Prefer live starters <a href="https://github.com/midnightntwrk/example-bboard" target="_blank" rel="noopener">example-bboard</a>
+      and <a href="https://github.com/midnightntwrk/create-mn-app" target="_blank" rel="noopener">create-mn-app</a>
+      (Example Counter is <em>archived</em>).</p>
+      <p style="margin-bottom:0">
+        <a class="btn" href="COMPACT-PORT.md">Compact port notes</a>
+        <a class="btn" href="https://github.com/Kshot3000/Midnight-GrokBot-Agent/tree/main/contracts/agent-escrow" target="_blank" rel="noopener">Compact skeleton</a>
+      </p>
+      <div class="tags" style="margin-top:12px">
+        <span class="tag purple">Midnight</span>
+        <span class="tag">MPS-0029</span>
+        <span class="tag">example-bboard</span>
+      </div>
+    </div>
     <div class="donate-box" data-addr="addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v"></div>
   </div>
 </section>

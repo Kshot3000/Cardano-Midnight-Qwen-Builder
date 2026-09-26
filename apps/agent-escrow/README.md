@@ -77,6 +77,28 @@ node apps/agent-escrow/demo.js
 python apps/agent-escrow/demo.py
 ```
 
+
+## Compact / Midnight port
+
+Off-chain JS + Python is the **reference protocol**. The Compact skeleton and
+MPS-0029 auth notes live here:
+
+- Port guide: [COMPACT-PORT.md](COMPACT-PORT.md)
+- Compact skeleton: [Kshot3000/Midnight-GrokBot-Agent/contracts/agent-escrow](https://github.com/Kshot3000/Midnight-GrokBot-Agent/tree/main/contracts/agent-escrow)
+
+**Live starters** (do not use archived Counter):
+[`example-bboard`](https://github.com/midnightntwrk/example-bboard) ·
+[`create-mn-app`](https://github.com/midnightntwrk/create-mn-app).
+
+**Auth (MPS-0029):** never authorize with `ownPublicKey()` alone. This reference
+rejects registering the agent as an approver at create time — Compact stores
+witness-derived role commitments with the same separation of duties.
+
+## Branding
+
+- **X:** [@kshot9000](https://x.com/kshot9000)
+- **ADA:** `addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udnyhuk4ah92pl5x9jpqjae44v`
+
 ## Cardano on-chain mapping (next)
 
 One UTxO per escrow (state token) + treasury UTxO (lovelace). The validator

@@ -36,6 +36,21 @@ settlement layer; Midnight gives selective disclosure via zero-knowledge proofs.
 compute turns into accountable infrastructure. (This repo's escrow protocol is a concrete
 prototype of that idea.)
 
+
+## 🌙 Midnight Compact starters (live)
+
+New Midnight contracts should **not** start from the archived Example Counter.
+
+| Resource | Notes |
+| --- | --- |
+| [`example-bboard`](https://github.com/midnightntwrk/example-bboard) | **Preferred** full-stack starter (witnesses, identity commitments) |
+| [`create-mn-app`](https://github.com/midnightntwrk/create-mn-app) | Official scaffold (`bboard` / battleship / leaderboard templates) |
+| [`example-counter`](https://github.com/midnightntwrk/example-counter) | **Archived** — historical only |
+
+**Agent Escrow** off-chain reference: [`apps/agent-escrow`](apps/agent-escrow/) · Compact port notes: [`apps/agent-escrow/COMPACT-PORT.md`](apps/agent-escrow/COMPACT-PORT.md) · Compact skeleton lab: [Midnight-GrokBot-Agent/contracts/agent-escrow](https://github.com/Kshot3000/Midnight-GrokBot-Agent/tree/main/contracts/agent-escrow).
+
+Auth rule (**MPS-0029**): never authorize privileged circuits with `ownPublicKey()` alone — use witness-derived `persistentHash` role commitments (see Compact port notes).
+
 ## 👛 Donate (ADA)
 
 If you like what the agent builds:

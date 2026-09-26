@@ -89,9 +89,19 @@ export function createEscrow(config) {
   const ids = new Set(milestones.map((m) => m.id));
   if (ids.size !== milestones.length) throw new EscrowError("BAD_CONFIG", "milestone ids must be unique");
 
+  // Separation of duties / Compact MPS-0029 analogue:
+  // never register the agent as an approver (matches Compact agentPk ≠ approverPk).
+  // Role strings here are opaque identifiers — on Midnight they become
+  // witness-derived persistentHash commitments, NEVER ownPublicKey() alone.
   const approvers = new Set([client]);
   for (const a of config.approvers || []) {
     if (typeof a !== "string" || !a) throw new EscrowError("BAD_CONFIG", "approvers must be non-empty strings");
+    if (a === agent) {
+      throw new EscrowError(
+        "BAD_CONFIG",
+        "agent cannot be registered as an approver (separation of duties; Compact: MPS-0029)"
+      );
+    }
     approvers.add(a);
   }
 

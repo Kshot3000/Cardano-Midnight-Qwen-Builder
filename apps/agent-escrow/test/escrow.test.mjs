@@ -303,3 +303,22 @@ test("unknown milestone id is rejected", () => {
     (err) => err instanceof EscrowError && err.code === "UNKNOWN_MILESTONE"
   );
 });
+
+test("agent cannot be registered as an approver at create (MPS-0029 / separation)", () => {
+  assert.throws(
+    () =>
+      createEscrow({
+        ...standardConfig(),
+        approvers: ["auditor-addr", "agent-addr"],
+      }),
+    (err) => err instanceof EscrowError && err.code === "BAD_CONFIG"
+  );
+});
+
+test("createEscrow documents opaque role ids (Compact ports use witness commitments)", () => {
+  const e = createEscrow(standardConfig());
+  assert.ok(e.getApprovers().includes("client-addr"));
+  assert.ok(e.getApprovers().includes("auditor-addr"));
+  assert.ok(!e.getApprovers().includes("agent-addr"));
+});
+

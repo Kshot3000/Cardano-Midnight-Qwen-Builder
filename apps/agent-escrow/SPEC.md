@@ -80,6 +80,18 @@ selective disclosure of *that* claim only — no raw data ever leaves the agent.
 - Proof hashes live in the token metadata; Midnight's ZK network can selectively
   disclose "milestone i is proven" without revealing the artifact.
 
+
+## Midnight Compact mapping
+
+See [COMPACT-PORT.md](COMPACT-PORT.md). Authoritative Compact skeleton:
+https://github.com/Kshot3000/Midnight-GrokBot-Agent/tree/main/contracts/agent-escrow
+
+**MPS-0029:** do not gate privileged circuits on `ownPublicKey()` alone. Prefer
+witness `localSecretKey` + `persistentHash` role commitments (example-bboard /
+leaderboard pattern). Live starters: example-bboard, create-mn-app (Counter is archived).
+
+At create time the agent must not appear in the approver set (separation of duties).
+
 ## Run the tests
 
 ```bash
