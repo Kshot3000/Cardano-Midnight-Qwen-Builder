@@ -15,8 +15,8 @@ All 23 apps are live on GitHub Pages and linked from the [landing page](https://
 
 | App | What it does | Link |
 |-----|--------------|------|
-| **Midnight Pulse** | Live Midnight mainnet dashboard — blocks, TPS, shielded ratio, bridge ops, committee, event breakdown — pulled from the public [NightForge explorer API](https://nightforge.jp/api/docs). | [apps/midnight-pulse](apps/midnight-pulse/) |
-| **Ada Metrics** | Live Cardano dashboard — ADA price, market cap, block height, 24h blocks/tx throughput. | [apps/ada-metrics](apps/ada-metrics/) |
+| **Midnight Pulse** | Live Midnight mainnet dashboard — blocks, TPS, shielded ratio, bridge ops, committee, event breakdown — pulled from the public [NightForge explorer API](https://nightforge.jp/api/docs). API data renders via textContent-only view-models (src/pulse.js). 12 tests. | [apps/midnight-pulse](apps/midnight-pulse/) |
+| **Ada Metrics** | Live Cardano dashboard — ADA price, market cap, block height, 24h blocks/tx throughput. Live/stale status is decided only after both APIs settle (no timer race). 12 tests. | [apps/ada-metrics](apps/ada-metrics/) |
 | **Ada Yield Tracker** | Live Cardano staking yield — network APY, reward pot, top stake pools with per-pool net APY + saturation (CIP-16 formula, keyless `data.cardano.org`), plus a Pool Inspector for any `pool1…` id. 80 tests. | [apps/ada-yield](apps/ada-yield/) |
 | **UTxO Lab** | Cardano coin-selection simulator — exact fee math, min-output-Ada rule, dust folding, 16k UTxO-set cap. Pure client-side, 19 tests. | [apps/utxo-lab](apps/utxo-lab/) |
 | **Nightwatch** | Standardized Midnight privacy-chain dashboard — tx growth, DUST consumption, transparent 0–100 health score. Pending metrics labeled, never faked. 20 tests. | [apps/nightwatch](apps/nightwatch/) |
@@ -89,7 +89,7 @@ addr1q8hnl6vl5a6k3rw3n5g3jtte696zcl76kfatzv7gpswa9r0dj7fma6klq55y4ffm7tf0em09udn
 
 ```
 /                        GitHub Pages landing page (index.html, styles.css)
-/apps/<name>/            23 apps — each has index.html + app.js, most have src/ + test/
+/apps/<name>/            23 apps — each has index.html + app.js + src/ + test/
 /assets/common.js        shared nav, footer, and donation box for every page
 /docs/                   community announcements and notes
 ```
@@ -100,7 +100,7 @@ returning visitors never get a stale copy.
 
 ## 🧪 Run the tests
 
-663 tests total (640 JavaScript + 23 Python), all passing:
+687 tests total (664 JavaScript + 23 Python), all passing:
 
 ```bash
 # every app's JS suite

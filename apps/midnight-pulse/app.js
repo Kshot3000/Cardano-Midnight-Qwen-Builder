@@ -4,99 +4,117 @@
      GET /api/health                 -> service status
      GET /api/analytics/overview     -> blocks, tps, shielded ratio, events...
      GET /api/blocks?limit=N         -> latest blocks
-   Refresh interval: 60s. All failures degrade gracefully. */
-(function () {
-  "use strict";
+   Refresh interval: 60s. All failures degrade gracefully.
+   Rendering uses src/pulse.js view-models + textContent throughout: API
+   strings are third-party data and are never interpolated into HTML markup
+   (the old version did exactly that, so a "<" or quote in an event name or
+   block field would have become live markup in the page). */
+import { statsView, eventRows, blockRows } from "./src/pulse.js";
 
-  var API = "https://mainnet.nightforge.jp/api";
-  var REFRESH_MS = 60000;
+const API = "https://mainnet.nightforge.jp/api";
+const REFRESH_MS = 60000;
 
-  function fmt(n) {
-    if (n === null || n === undefined) return "—";
-    if (typeof n === "number") {
-      if (n >= 1e9) return (n / 1e9).toFixed(2) + "B";
-      if (n >= 1e6) return (n / 1e6).toFixed(2) + "M";
-      if (n >= 1e3) return (n / 1e3).toFixed(1) + "K";
-      return String(Math.round(n * 100) / 100);
+function setPill(state, text) {
+  const dot = document.getElementById("live-dot");
+  const txt = document.getElementById("live-text");
+  if (dot) dot.className = "dot" + (state === "live" ? "" : " stale");
+  if (txt) txt.textContent = text;
+}
+
+function statTile(it) {
+  const stat = document.createElement("div");
+  stat.className = "stat";
+  const label = document.createElement("div");
+  label.className = "label";
+  label.textContent = it.label;
+  const value = document.createElement("div");
+  value.className = "value";
+  value.textContent = it.value;
+  stat.append(label, value);
+  return stat;
+}
+
+function emptyNote(text) {
+  const div = document.createElement("div");
+  div.className = "section-sub";
+  div.textContent = text;
+  return div;
+}
+
+function renderStats(o) {
+  const el = document.getElementById("stats");
+  if (el) el.replaceChildren(...statsView(o).map(statTile));
+}
+
+function renderEvents(events) {
+  const el = document.getElementById("events");
+  if (!el) return;
+  const rows = eventRows(events);
+  if (!rows.length) { el.replaceChildren(emptyNote("no data")); return; }
+  el.replaceChildren(...rows.map((row) => {
+    const wrap = document.createElement("div");
+    wrap.className = "bar-row";
+    const name = document.createElement("div");
+    name.className = "name";
+    name.textContent = row.name;
+    name.title = row.name;
+    const track = document.createElement("div");
+    track.className = "bar-track";
+    const fill = document.createElement("div");
+    fill.className = "bar-fill";
+    fill.style.width = row.pct + "%";
+    track.appendChild(fill);
+    const num = document.createElement("div");
+    num.className = "num";
+    num.textContent = row.countLabel;
+    wrap.append(name, track, num);
+    return wrap;
+  }));
+}
+
+function renderBlocks(blocks) {
+  const el = document.getElementById("blocks");
+  if (!el) return;
+  const rows = blockRows(blocks);
+  if (!rows.length) { el.replaceChildren(emptyNote("no blocks yet")); return; }
+  el.replaceChildren(...rows.map((row) => {
+    const wrap = document.createElement("div");
+    wrap.className = "block-row";
+    const parts = [["h", row.height], ["hash", row.hash], ["time", row.time], ["ext", row.ext]];
+    for (const [cls, text] of parts) {
+      const span = document.createElement("span");
+      span.className = cls;
+      span.textContent = text;
+      wrap.appendChild(span);
     }
-    return String(n);
-  }
+    return wrap;
+  }));
+}
 
-  function setPill(state, text) {
-    var dot = document.getElementById("live-dot");
-    var txt = document.getElementById("live-text");
-    if (dot) dot.className = "dot" + (state === "live" ? "" : " stale");
-    if (txt) txt.textContent = text;
-  }
+function fetchJson(url) {
+  return fetch(url)
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+}
 
-  function renderStats(o) {
-    var items = [
-      { label: "Blocks", value: fmt(o.blocks) },
-      { label: "Avg block time", value: o.avgBlockTime != null ? o.avgBlockTime + "s" : "—" },
-      { label: "TPS (avg)", value: o.tps != null ? o.tps.toFixed(3) : "—" },
-      { label: "Shielded ratio", value: o.shieldedRatio != null ? (o.shieldedRatio * 100).toFixed(1) + "%" : "—" },
-      { label: "Midnight txs", value: fmt(o.midnightTxs) },
-      { label: "Bridge ops", value: fmt(o.bridgeOps) },
-      { label: "Committee size", value: o.committeeSize != null ? String(o.committeeSize) : "—" },
-      { label: "Contract deploys", value: fmt(o.contractDeploys) },
-      { label: "Contract calls", value: fmt(o.contractCalls) },
-      { label: "Network age", value: o.networkAgeDays != null ? o.networkAgeDays + " days" : "—" }
-    ];
-    var el = document.getElementById("stats");
-    el.innerHTML = items.map(function (it) {
-      return '<div class="stat"><div class="label">' + it.label + '</div>' +
-             '<div class="value">' + it.value + '</div></div>';
-    }).join("");
-  }
+function load() {
+  setPill("stale", "refreshing…");
+  Promise.all([
+    fetchJson(API + "/analytics/overview"),
+    fetchJson(API + "/blocks?limit=8"),
+    fetchJson(API + "/health"),
+  ]).then(([overview, blocks, health]) => {
+    if (overview) {
+      renderStats(overview);
+      renderEvents(overview.eventBreakdown);
+      const age = health && health.network ? health.network : (overview.network || "Midnight Mainnet");
+      setPill("live", "live · " + age + " · " + new Date().toLocaleTimeString());
+    } else {
+      setPill("stale", "API unreachable — retrying in 60s");
+    }
+    if (blocks) renderBlocks(blocks);
+  });
+}
 
-  function renderEvents(events) {
-    var el = document.getElementById("events");
-    if (!events || !events.length) { el.innerHTML = '<div class="section-sub">no data</div>'; return; }
-    var top = events.slice(0, 12);
-    var max = top.reduce(function (m, e) { return Math.max(m, e.count || 0); }, 1);
-    el.innerHTML = top.map(function (e) {
-      var pct = Math.max(2, Math.round(((e.count || 0) / max) * 100));
-      var name = (e.section || "?") + "." + (e.method || "?");
-      return '<div class="bar-row"><div class="name" title="' + name + '">' + name +
-             '</div><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>' +
-             '<div class="num">' + fmt(e.count) + '</div></div>';
-    }).join("");
-  }
-
-  function renderBlocks(blocks) {
-    var el = document.getElementById("blocks");
-    if (!blocks || !blocks.length) { el.innerHTML = '<div class="section-sub">no blocks yet</div>'; return; }
-    el.innerHTML = blocks.slice(0, 8).map(function (b) {
-      var t = b.timestamp ? new Date(b.timestamp * 1000).toLocaleString() : "—";
-      var h = b.hash ? b.hash.slice(0, 22) + "…" : "—";
-      return '<div class="block-row"><span class="h">#' + b.height +
-             '</span><span class="hash">' + h +
-             '</span><span class="time">' + t +
-             '</span><span class="ext">' + (b.extrinsics_count != null ? b.extrinsics_count + " ext" : "") +
-             '</span></div>';
-    }).join("");
-  }
-
-  function load() {
-    setPill("stale", "refreshing…");
-    Promise.all([
-      fetch(API + "/analytics/overview").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch(API + "/blocks?limit=8").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-      fetch(API + "/health").then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
-    ]).then(function (res) {
-      var overview = res[0], blocks = res[1], health = res[2];
-      if (overview) {
-        renderStats(overview);
-        renderEvents(overview.eventBreakdown);
-        var age = health && health.network ? health.network : (overview.network || "Midnight Mainnet");
-        setPill("live", "live · " + age + " · " + new Date().toLocaleTimeString());
-      } else {
-        setPill("stale", "API unreachable — retrying in 60s");
-      }
-      if (blocks) renderBlocks(blocks);
-    });
-  }
-
-  load();
-  setInterval(load, REFRESH_MS);
-})();
+load();
+setInterval(load, REFRESH_MS);
