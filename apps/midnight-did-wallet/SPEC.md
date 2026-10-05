@@ -53,6 +53,8 @@ DID string itself.
 | `app.js` | UI logic — builds state from the form, mints long DIDs, projects the DID Document, and inspects pasted DIDs. |
 | `test/did.test.mjs` | `node:test` suite (25 tests) anchored to the official spec test vector + Node-native BLAKE2s cross-checks. |
 | `test/spec-vector.txt` | The exact 506-char base64url offchain-state payload from the spec, used as the pinned fixture. |
+| `test/harness.mjs` | Standalone BLAKE2s check script: spec vector + 2,600-case fuzz vs Node-native `blake2s256` + known-answer vectors. Exits non-zero on any failure; run in CI. |
+| `test/vec-check.mjs` | Standalone spec-vector check script for the DID codec (encode/hash/parse/resolve + tamper rejection). Exits non-zero on any failure; run in CI. |
 
 ## Spec conformance
 
@@ -65,4 +67,6 @@ DID string itself.
 
 ```bash
 node --test apps/midnight-did-wallet/test/did.test.mjs
+node apps/midnight-did-wallet/test/harness.mjs
+node apps/midnight-did-wallet/test/vec-check.mjs
 ```

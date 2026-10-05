@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   node-tests:
     runs-on: ubuntu-latest
@@ -12,6 +15,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Verify every test suite is wired into CI
+        run: |
+          missing=0
+          for f in apps/*/test/*.test.mjs; do
+            if ! grep -Fq "$f" .github/workflows/ci.yml; then
+              echo "test suite missing from CI: $f"
+              missing=1
+            fi
+          done
+          for f in apps/*/test/test_*.py; do
+            if ! grep -Fq "$(dirname "$f")" .github/workflows/ci.yml; then
+              echo "python test suite missing from CI: $f"
+              missing=1
+            fi
+          done
+          for f in apps/*/test/*.mjs; do
+            case "$f" in *.test.mjs) continue ;; esac
+            if grep -Fq "$f" .github/workflows/ci.yml; then continue; fi
+            if grep -Fq "$(basename "$f")" apps/*/test/*.test.mjs; then continue; fi
+            echo "test helper neither imported by a suite nor run in CI: $f"
+            missing=1
+          done
+          exit $missing
       - name: Run Node tests
         run: node --test apps/agent-escrow/test/escrow.test.mjs
       - name: Run Nightwatch tests
@@ -20,6 +46,8 @@ jobs:
         run: node --test apps/agent-proof/test/proofs.test.mjs
       - name: Run Midnight DID Wallet tests
         run: node --test apps/midnight-did-wallet/test/did.test.mjs
+      - name: Run Midnight DID Wallet standalone checks
+        run: node apps/midnight-did-wallet/test/harness.mjs && node apps/midnight-did-wallet/test/vec-check.mjs
       - name: Run Ada Yield Tracker tests
         run: node --test apps/ada-yield/test/rewards.test.mjs
       - name: Run Ada Yield Pool Inspector tests
@@ -48,6 +76,18 @@ jobs:
         run: node --test apps/reward-flow/test/flow.test.mjs apps/reward-flow/test/mainnet.test.mjs
       - name: Run DRep Watch tests
         run: node --test apps/drep-watch/test/codec.test.mjs apps/drep-watch/test/trend.test.mjs apps/drep-watch/test/mainnet.test.mjs
+      - name: Run Ada Price Thermometer tests
+        run: node --test apps/ada-price-thermometer/test/thermometer.test.mjs
+      - name: Run Dano Positions tests
+        run: node --test apps/dano-positions/test/dano.test.mjs
+      - name: Run Midnight Tx Finder tests
+        run: node --test apps/midnight-tx-finder/test/midnight.test.mjs
+      - name: Run UTxO Lab tests
+        run: node --test apps/utxo-lab/test/coinselect.test.mjs
+      - name: Run Ada Metrics tests
+        run: node --test apps/ada-metrics/test/metrics.test.mjs
+      - name: Run Midnight Pulse tests
+        run: node --test apps/midnight-pulse/test/pulse.test.mjs
 
   python-tests:
     runs-on: ubuntu-latest

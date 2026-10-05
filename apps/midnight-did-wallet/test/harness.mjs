@@ -1,3 +1,6 @@
+// Standalone BLAKE2s-256 verification harness: spec vector, fuzz vs native
+// Node blake2s256, and known-answer vectors. Exits non-zero on ANY failure
+// (it runs in CI — printing FAIL without failing the run would be theatre).
 import { createHash } from "node:crypto";
 import { blake2s256Hex } from "../src/blake2s.js";
 
@@ -7,10 +10,10 @@ const payload = Buffer.from(b64, "base64url");
 const spec = "3c08b85758d973a6002942c730d077ede51920c184927aaf010562035203fc21";
 const got = blake2s256Hex(payload);
 console.log("spec vector :", got === spec ? "PASS" : "FAIL got=" + got);
+let fails = got === spec ? 0 : 1;
 
 // 2) Fuzz against native Node blake2s256
 const rnd = (n) => new Uint8Array(Array.from({ length: n }, () => Math.floor(Math.random() * 256)));
-let fails = 0;
 const sizes = [0, 1, 7, 8, 63, 64, 65, 127, 128, 129, 256, 1000, 4096];
 for (const n of sizes) {
   for (let trial = 0; trial < 200; trial++) {
@@ -32,5 +35,7 @@ const known = [
 for (const [s, want] of known) {
   const gotk = blake2s256Hex(Buffer.from(s, "utf8"));
   console.log(`KAV "${s}" :`, gotk === want ? "PASS" : "FAIL got=" + gotk);
+  if (gotk !== want) fails++;
 }
 console.log("fuzz fails:", fails, "of", sizes.length * 200);
+process.exit(fails === 0 ? 0 : 1);

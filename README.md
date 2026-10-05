@@ -25,10 +25,10 @@ All 23 apps are live on GitHub Pages and linked from the [landing page](https://
 | **ADA Price Thermometer** | Three keyless ADA/USD quotes (Minswap, CoinGecko, DefiLlama) fused into a consensus price + 0–100 source-agreement score. 26 tests. | [apps/ada-price-thermometer](apps/ada-price-thermometer/) |
 | **Agent Escrow Protocol** | Milestone-based escrow payments for AI agents: release funds only on signed proof of work. JS + Python implementations, unit-tested. | [apps/agent-escrow](apps/agent-escrow/) |
 | **AgentProof** | Paste any Agent Escrow receipt and re-derive its validity 100% locally — proof commitments, separation of duties, accounting identity, audit trail. 64 tests. | [apps/agent-proof](apps/agent-proof/) |
-| **Midnight DID Wallet** | Build and inspect `did:midnight` identities entirely in-browser — pure-JS BLAKE2s-256, MOD1 offchain-state codec, projected W3C DID Document. Zero network calls. 27 tests. | [apps/midnight-did-wallet](apps/midnight-did-wallet/) |
+| **Midnight DID Wallet** | Build and inspect `did:midnight` identities entirely in-browser — pure-JS BLAKE2s-256, MOD1 offchain-state codec, projected W3C DID Document. Zero network calls. 25 tests + 2 standalone check scripts (BLAKE2s spec/fuzz harness, spec-vector check — both run in CI and exit non-zero on failure). | [apps/midnight-did-wallet](apps/midnight-did-wallet/) |
 | **Glacier Drop Checker** | Midnight Glacier Drop NIGHT thaw schedule from the official redemption-contract math, live Cardano tip, bech32 validator. 30 tests. | [apps/glacier-drop](apps/glacier-drop/) |
 | **Bridge Watch** | Live Cardano ↔ Midnight bridge health — lifetime ops, 24h volume, transparent 0–100 health score (NightForge API). 26 tests. | [apps/bridge-watch](apps/bridge-watch/) |
-| **Contract Watch** | Live Midnight contract ecosystem — census, activity mix, call concentration, deployment trend, byte-exact contract-address codec. 45 tests. | [apps/midnight-contracts](apps/midnight-contracts/) |
+| **Contract Watch** | Live Midnight contract ecosystem — census, activity mix, call concentration, deployment trend, byte-exact contract-address codec. 44 tests. | [apps/midnight-contracts](apps/midnight-contracts/) |
 | **NIGHT Market Tracker** | Live NIGHT token market dashboard — price, cap, supply vs the 24B cap, 7-day chart, on-chain policy-id cross-check (CoinGecko). 26 tests. | [apps/night-market](apps/night-market/) |
 | **Governance Watch** | Who runs Midnight — live council & technical-committee motions, vote tallies, thresholds, 0–100 governance health score. 31 tests. | [apps/governance-watch](apps/governance-watch/) |
 | **Block Watch** | Midnight block production, verified — last 120 blocks' hash chain re-checked link-by-link in your browser, cadence + health score. 28 tests. | [apps/block-watch](apps/block-watch/) |
@@ -100,11 +100,17 @@ returning visitors never get a stale copy.
 
 ## 🧪 Run the tests
 
-687 tests total (664 JavaScript + 23 Python), all passing:
+684 tests total (661 JavaScript + 23 Python), all passing, plus 2 standalone
+DID check scripts. GitHub Actions CI runs every suite below on push and pull
+request, and a coverage step fails the run if any suite or standalone check
+is not wired into the workflow:
 
 ```bash
 # every app's JS suite
-for d in apps/*/test; do node --test "$d"/*.mjs; done
+for d in apps/*/test; do node --test "$d"/*.test.mjs; done
+# DID Wallet standalone checks (spec/fuzz harness + spec-vector check)
+node apps/midnight-did-wallet/test/harness.mjs
+node apps/midnight-did-wallet/test/vec-check.mjs
 # escrow protocol, both implementations
 node --test apps/agent-escrow/test/escrow.test.mjs
 python3 -m unittest discover apps/agent-escrow/test

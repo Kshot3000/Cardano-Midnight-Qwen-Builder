@@ -56,8 +56,8 @@ by tests).
 
 | File | Purpose | Tested? |
 |------|---------|---------|
-| `src/address.js` | Pure codec: tag constant, hex helpers, encode/decode/validate/humanize | ✅ 17 tests |
-| `src/analyze.js` | Pure analytics: activity classification + tally, concentration, interaction stats, deployment trend, deploy-event dedupe, coverage cross-check, address sanity | ✅ 27 tests |
+| `src/address.js` | Pure codec: tag constant, hex helpers, encode/decode/validate/humanize | ✅ 16 tests |
+| `src/analyze.js` | Pure analytics: activity classification + tally, concentration, interaction stats, deployment trend, deploy-event dedupe, coverage cross-check, address sanity | ✅ 28 tests |
 | `app.js` | ES-module app: fetch → derive → render, graceful partial/offline states | — |
 | `test/address.test.mjs` | Codec unit tests incl. round-trips over 10 real live addresses | — |
 | `test/analyze.test.mjs` | Analytics unit tests incl. exact tallies over all 150 real leaderboard rows | — |
